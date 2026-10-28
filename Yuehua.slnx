@@ -1,0 +1,6 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Yuehua.M0Check/Yuehua.M0Check.csproj" />
+    <Project Path="src/Yuehua/Yuehua.csproj" />
+  </Folder>
+</Solution>

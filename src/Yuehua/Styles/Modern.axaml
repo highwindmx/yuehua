@@ -1,0 +1,360 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:views="clr-namespace:Yuehua.Views">
+
+  <Styles.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.ThemeDictionaries>
+        <!-- 浅色 -->
+        <ResourceDictionary x:Key="Light">
+          <SolidColorBrush x:Key="YhHover" Color="#12000000"/>
+          <SolidColorBrush x:Key="YhPressed" Color="#1E000000"/>
+          <SolidColorBrush x:Key="YhChrome" Color="#F7F7F9"/>
+          <SolidColorBrush x:Key="YhPanel" Color="#FFFFFF"/>
+          <SolidColorBrush x:Key="YhSurface" Color="#F2F2F5"/>
+          <SolidColorBrush x:Key="YhBorder" Color="#E2E2E7"/>
+          <SolidColorBrush x:Key="YhDim" Color="#8A8A92"/>
+          <SolidColorBrush x:Key="YhIcon" Color="#24242A"/>
+          <SolidColorBrush x:Key="YhCanvas" Color="#E9E9ED"/>
+        </ResourceDictionary>
+        <!-- 深色 -->
+        <ResourceDictionary x:Key="Dark">
+          <SolidColorBrush x:Key="YhHover" Color="#16FFFFFF"/>
+          <SolidColorBrush x:Key="YhPressed" Color="#24FFFFFF"/>
+          <SolidColorBrush x:Key="YhChrome" Color="#18181B"/>
+          <SolidColorBrush x:Key="YhPanel" Color="#1D1D21"/>
+          <SolidColorBrush x:Key="YhSurface" Color="#26262B"/>
+          <SolidColorBrush x:Key="YhBorder" Color="#2E2E35"/>
+          <SolidColorBrush x:Key="YhDim" Color="#8C8C96"/>
+          <SolidColorBrush x:Key="YhIcon" Color="#ECECF1"/>
+          <SolidColorBrush x:Key="YhCanvas" Color="#0E0E11"/>
+        </ResourceDictionary>
+      </ResourceDictionary.ThemeDictionaries>
+    </ResourceDictionary>
+  </Styles.Resources>
+
+  <!-- ============ 图标描边统一风格 ============ -->
+  <Style Selector="Path.icon">
+    <Setter Property="Stretch" Value="Uniform"/>
+    <Setter Property="Width" Value="17"/>
+    <Setter Property="Height" Value="17"/>
+    <Setter Property="StrokeThickness" Value="1.55"/>
+    <Setter Property="StrokeLineCap" Value="Round"/>
+    <Setter Property="StrokeJoin" Value="Round"/>
+    <Setter Property="Stroke" Value="{DynamicResource YhIcon}"/>
+  </Style>
+  <Style Selector="Button:disabled Path.icon">
+    <Setter Property="Opacity" Value="0.4"/>
+  </Style>
+  <!-- 窗口控制图标：放大到 16，使其与最大化方块、关闭叉形视觉权重一致 -->
+  <Style Selector="Path.icon.win">
+    <Setter Property="Width" Value="16"/>
+    <Setter Property="Height" Value="16"/>
+    <Setter Property="StrokeThickness" Value="1.4"/>
+  </Style>
+
+  <!-- ============ 顶栏图标按钮 ============ -->
+  <Style Selector="Button.tb">
+    <Setter Property="Width" Value="32"/>
+    <Setter Property="Height" Value="28"/>
+    <Setter Property="Padding" Value="0"/>
+    <Setter Property="CornerRadius" Value="6"/>
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderThickness" Value="0"/>
+    <Setter Property="HorizontalContentAlignment" Value="Center"/>
+    <Setter Property="VerticalContentAlignment" Value="Center"/>
+    <Setter Property="ToolTip.ShowDelay" Value="350"/>
+  </Style>
+  <Style Selector="Button.tb:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource YhHover}"/>
+  </Style>
+  <Style Selector="Button.tb:pressed /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource YhPressed}"/>
+  </Style>
+  <Style Selector="Button.tb:disabled">
+    <Setter Property="Opacity" Value="0.38"/>
+  </Style>
+  <!-- 宽度自适应（文字按钮，如 100% / 1:1） -->
+  <Style Selector="Button.tb-auto">
+    <Setter Property="MinWidth" Value="32"/>
+    <Setter Property="Width" Value="NaN"/>
+    <Setter Property="Height" Value="28"/>
+    <Setter Property="Padding" Value="7,0"/>
+    <Setter Property="CornerRadius" Value="6"/>
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderThickness" Value="0"/>
+    <Setter Property="FontSize" Value="11.5"/>
+    <Setter Property="HorizontalContentAlignment" Value="Center"/>
+    <Setter Property="VerticalContentAlignment" Value="Center"/>
+    <Setter Property="ToolTip.ShowDelay" Value="350"/>
+  </Style>
+  <Style Selector="Button.tb-auto:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource YhHover}"/>
+  </Style>
+  <Style Selector="Button.tb-auto:pressed /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource YhPressed}"/>
+  </Style>
+
+  <!-- ============ 左侧工具箱按钮（Toggle 语义由 ToolButton 的 :checked 驱动）============ -->
+  <Style Selector="views|ToolButton">
+    <Setter Property="Width" Value="34"/>
+    <Setter Property="Height" Value="32"/>
+    <Setter Property="Padding" Value="0"/>
+    <Setter Property="CornerRadius" Value="6"/>
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderThickness" Value="0"/>
+    <Setter Property="HorizontalContentAlignment" Value="Center"/>
+    <Setter Property="VerticalContentAlignment" Value="Center"/>
+    <Setter Property="ToolTip.ShowDelay" Value="350"/>
+  </Style>
+  <Style Selector="views|ToolButton:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource YhHover}"/>
+  </Style>
+  <Style Selector="views|ToolButton:checked /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource SystemAccentColor}"/>
+  </Style>
+  <Style Selector="views|ToolButton:checked Path.icon">
+    <Setter Property="Stroke" Value="#FFFFFF"/>
+  </Style>
+
+  <!-- ============ 顶栏开关按钮（面板 / 缩略图条，用 ToggleButton）============ -->
+  <Style Selector="ToggleButton.tb">
+    <Setter Property="Width" Value="32"/>
+    <Setter Property="Height" Value="28"/>
+    <Setter Property="Padding" Value="0"/>
+    <Setter Property="CornerRadius" Value="6"/>
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderThickness" Value="0"/>
+    <Setter Property="HorizontalContentAlignment" Value="Center"/>
+    <Setter Property="VerticalContentAlignment" Value="Center"/>
+    <Setter Property="ToolTip.ShowDelay" Value="350"/>
+  </Style>
+  <Style Selector="ToggleButton.tb:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource YhHover}"/>
+  </Style>
+  <Style Selector="ToggleButton.tb:checked /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource YhPressed}"/>
+  </Style>
+  <Style Selector="ToggleButton.tb:unchecked">
+    <Setter Property="Opacity" Value="0.5"/>
+  </Style>
+
+  <!-- ============ 窗口控制按钮（Win11 风格）============ -->
+  <Style Selector="Button.win">
+    <Setter Property="Width" Value="45"/>
+    <Setter Property="Height" Value="40"/>
+    <Setter Property="Padding" Value="0"/>
+    <Setter Property="CornerRadius" Value="0"/>
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderThickness" Value="0"/>
+    <Setter Property="HorizontalContentAlignment" Value="Center"/>
+    <Setter Property="VerticalContentAlignment" Value="Center"/>
+  </Style>
+  <Style Selector="Button.win:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource YhHover}"/>
+  </Style>
+  <Style Selector="Button.win.danger:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="#E81123"/>
+  </Style>
+  <Style Selector="Button.win.danger:pointerover Path.icon">
+    <Setter Property="Stroke" Value="#FFFFFF"/>
+  </Style>
+
+  <!-- ============ 面板内小图标按钮 ============ -->
+  <Style Selector="Button.mini">
+    <Setter Property="Width" Value="26"/>
+    <Setter Property="Height" Value="24"/>
+    <Setter Property="Padding" Value="0"/>
+    <Setter Property="CornerRadius" Value="5"/>
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderThickness" Value="0"/>
+    <Setter Property="HorizontalContentAlignment" Value="Center"/>
+    <Setter Property="VerticalContentAlignment" Value="Center"/>
+    <Setter Property="ToolTip.ShowDelay" Value="350"/>
+  </Style>
+  <Style Selector="Button.mini:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource YhHover}"/>
+  </Style>
+  <Style Selector="Button.mini Path.icon">
+    <Setter Property="Width" Value="14"/>
+    <Setter Property="Height" Value="14"/>
+  </Style>
+
+  <!-- ============ 面板 / 卡片 ============ -->
+  <Style Selector="Border.panel">
+    <Setter Property="Background" Value="{DynamicResource YhPanel}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource YhBorder}"/>
+    <Setter Property="BorderThickness" Value="1,0,0,0"/>
+  </Style>
+  <Style Selector="Border.card">
+    <Setter Property="Background" Value="{DynamicResource YhSurface}"/>
+    <Setter Property="CornerRadius" Value="6"/>
+    <Setter Property="Padding" Value="8"/>
+  </Style>
+  <Style Selector="TextBlock.dim">
+    <Setter Property="Foreground" Value="{DynamicResource YhDim}"/>
+    <Setter Property="FontSize" Value="11.5"/>
+  </Style>
+  <Style Selector="TextBlock.label">
+    <Setter Property="Foreground" Value="{DynamicResource YhDim}"/>
+    <Setter Property="FontSize" Value="11"/>
+    <Setter Property="VerticalAlignment" Value="Center"/>
+  </Style>
+  <Style Selector="Rectangle.sep">
+    <Setter Property="Width" Value="1"/>
+    <Setter Property="Height" Value="16"/>
+    <Setter Property="Fill" Value="{DynamicResource YhBorder}"/>
+    <Setter Property="Margin" Value="5,0"/>
+    <Setter Property="VerticalAlignment" Value="Center"/>
+  </Style>
+
+  <!-- ============ 侧栏 Tab（紧凑）============ -->
+  <Style Selector="TabItem">
+    <Setter Property="FontSize" Value="12"/>
+    <Setter Property="Padding" Value="10,7"/>
+    <Setter Property="MinHeight" Value="0"/>
+  </Style>
+
+  <!-- ============ 缩略图条目 ============ -->
+  <Style Selector="ListBox.thumbs ListBoxItem">
+    <Setter Property="Padding" Value="2"/>
+    <Setter Property="Margin" Value="2,0"/>
+    <Setter Property="CornerRadius" Value="6"/>
+  </Style>
+  <Style Selector="ListBox.thumbs ListBoxItem /template/ ContentPresenter">
+    <Setter Property="Background" Value="Transparent"/>
+  </Style>
+  <Style Selector="ListBox.thumbs ListBoxItem:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource YhHover}"/>
+  </Style>
+  <Style Selector="ListBox.thumbs ListBoxItem:selected /template/ ContentPresenter">
+    <Setter Property="Background" Value="Transparent"/>
+  </Style>
+  <Style Selector="ListBox.thumbs Border.thumb">
+    <Setter Property="BorderThickness" Value="2"/>
+    <Setter Property="BorderBrush" Value="Transparent"/>
+  </Style>
+  <Style Selector="ListBox.thumbs ListBoxItem:selected Border.thumb">
+    <Setter Property="BorderBrush" Value="{DynamicResource SystemAccentColor}"/>
+  </Style>
+  <Style Selector="ListBox.thumbs ListBoxItem:selected TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource SystemAccentColor}"/>
+  </Style>
+
+  <!-- ============ 预设色块 ============ -->
+  <Style Selector="Button.chip">
+    <Setter Property="Width" Value="26"/>
+    <Setter Property="Height" Value="26"/>
+    <Setter Property="Margin" Value="2"/>
+    <Setter Property="Padding" Value="0"/>
+    <Setter Property="CornerRadius" Value="5"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource YhBorder}"/>
+  </Style>
+  <Style Selector="Button.chip:pointerover">
+    <Setter Property="Opacity" Value="0.82"/>
+  </Style>
+
+  <!-- ============ 主操作按钮（导出）============ -->
+  <Style Selector="Button.accent">
+    <Setter Property="Background" Value="{DynamicResource SystemAccentColor}"/>
+    <Setter Property="Foreground" Value="#FFFFFF"/>
+    <Setter Property="CornerRadius" Value="6"/>
+    <Setter Property="BorderThickness" Value="0"/>
+    <Setter Property="HorizontalContentAlignment" Value="Center"/>
+    <Setter Property="VerticalContentAlignment" Value="Center"/>
+  </Style>
+  <Style Selector="Button.accent Path.icon">
+    <Setter Property="Stroke" Value="#FFFFFF"/>
+  </Style>
+  <Style Selector="Button.accent:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource SystemAccentColorLight1}"/>
+  </Style>
+
+  <!-- ============ 浮动工具条 ============ -->
+  <Style Selector="Border.floatpanel">
+    <Setter Property="Background" Value="{DynamicResource YhChrome}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource YhBorder}"/>
+  </Style>
+  <!-- 拖动手柄：竖排三点（顶栏用）/ 横排三点（工具箱、缩略图条用） -->
+  <Style Selector="Border.grip">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="CornerRadius" Value="3"/>
+    <Setter Property="Cursor" Value="SizeAll"/>
+  </Style>
+  <Style Selector="Border.grip:pointerover">
+    <Setter Property="Background" Value="{DynamicResource YhHover}"/>
+  </Style>
+  <Style Selector="Border.grip-v">
+    <Setter Property="Width" Value="9"/>
+    <Setter Property="Height" Value="26"/>
+    <Setter Property="Margin" Value="1,0,3,0"/>
+    <Setter Property="VerticalAlignment" Value="Center"/>
+  </Style>
+  <Style Selector="Border.grip-h">
+    <Setter Property="Height" Value="9"/>
+    <Setter Property="Width" Value="34"/>
+    <Setter Property="Margin" Value="0,1,0,1"/>
+    <Setter Property="HorizontalAlignment" Value="Center"/>
+  </Style>
+  <Style Selector="Ellipse.gripdot">
+    <Setter Property="Width" Value="2.6"/>
+    <Setter Property="Height" Value="2.6"/>
+    <Setter Property="Fill" Value="{DynamicResource YhDim}"/>
+  </Style>
+
+  <!-- ============ 图层条目 ============ -->
+  <Style Selector="ListBoxItem.layer">
+    <Setter Property="Padding" Value="6,4"/>
+    <Setter Property="Margin" Value="0,1"/>
+    <Setter Property="CornerRadius" Value="5"/>
+  </Style>
+  <!-- 当前图层：浅底 + 左侧强调竖条 + 加粗名字，一眼看出新标注会落到哪一层 -->
+  <Style Selector="ListBoxItem.layer:selected /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource YhSurface}"/>
+  </Style>
+  <Style Selector="ListBoxItem.layer:selected TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource YhIcon}"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
+  </Style>
+  <Style Selector="ListBoxItem.layer:selected Border.layerbar">
+    <Setter Property="IsVisible" Value="True"/>
+  </Style>
+  <Style Selector="Border.layerbar">
+    <Setter Property="Width" Value="2.5"/>
+    <Setter Property="CornerRadius" Value="2"/>
+    <Setter Property="Background" Value="{DynamicResource SystemAccentColor}"/>
+    <Setter Property="Margin" Value="0,1,4,1"/>
+    <Setter Property="IsVisible" Value="False"/>
+  </Style>
+
+  <!-- ============ 历史记录条目 ============ -->
+  <Style Selector="Button.his">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderThickness" Value="0"/>
+    <Setter Property="CornerRadius" Value="4"/>
+    <Setter Property="Padding" Value="5,2"/>
+    <Setter Property="HorizontalAlignment" Value="Stretch"/>
+    <Setter Property="HorizontalContentAlignment" Value="Left"/>
+    <Setter Property="MinHeight" Value="20"/>
+  </Style>
+  <Style Selector="Button.his:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource YhHover}"/>
+  </Style>
+  <Style Selector="Button.his TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource YhDim}"/>
+  </Style>
+  <!-- 当前所处的这一步 -->
+  <Style Selector="Button.his.current /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource YhSurface}"/>
+  </Style>
+  <Style Selector="Button.his.current TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource YhIcon}"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
+  </Style>
+  <!-- 光标之后的“未来分支”（点它等于重做） -->
+  <Style Selector="Button.his.future TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource YhDim}"/>
+    <Setter Property="Opacity" Value="0.55"/>
+  </Style>
+</Styles>

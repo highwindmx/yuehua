@@ -1,0 +1,149 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:Yuehua.ViewModels"
+        xmlns:models="clr-namespace:Yuehua.Models"
+        x:Class="Yuehua.Views.ExportDialog"
+        x:DataType="vm:MainViewModel"
+        Title="另存为"
+        Width="404" SizeToContent="Height" CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        FontSize="12.5"
+        Background="{DynamicResource YhChrome}"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaTitleBarHeightHint="38"
+        WindowDecorations="BorderOnly">
+
+  <Grid RowDefinitions="38,*,Auto">
+
+    <!-- ============ 标题栏 ============ -->
+    <Border Grid.Row="0" Background="{DynamicResource YhChrome}"
+            BorderThickness="0,0,0,1" BorderBrush="{DynamicResource YhBorder}"
+            PointerPressed="OnTitleBarPointerPressed">
+      <Grid ColumnDefinitions="Auto,*,Auto" Margin="13,0,0,0">
+        <Path Grid.Column="0" Classes="icon" Width="15" Height="15"
+              Data="{StaticResource ic_export}" VerticalAlignment="Center"/>
+        <TextBlock Grid.Column="1" Text="另存为" FontWeight="SemiBold" FontSize="12.5"
+                   VerticalAlignment="Center" Margin="9,0,0,0"/>
+        <Button Grid.Column="2" Classes="win" Width="44" Height="38" Click="OnCancelClick"
+                ToolTip.Tip="取消">
+          <Path Classes="icon" Data="{StaticResource ic_close}" Width="12" Height="12"/>
+        </Button>
+      </Grid>
+    </Border>
+
+    <!-- ============ 参数区 ============ -->
+    <ScrollViewer Grid.Row="1" Padding="14,12" MaxHeight="520">
+      <StackPanel Spacing="10">
+
+        <!-- 原图信息 -->
+        <Border Classes="card">
+          <StackPanel Spacing="3">
+            <TextBlock Text="{Binding FileName}" FontWeight="SemiBold"
+                       TextTrimming="CharacterEllipsis"/>
+            <TextBlock Text="{Binding StatusText}" Classes="dim" TextTrimming="CharacterEllipsis"/>
+          </StackPanel>
+        </Border>
+
+        <!-- 方式 -->
+        <Grid ColumnDefinitions="66,*" ColumnSpacing="6">
+          <TextBlock Grid.Column="0" Classes="label" Text="方式"/>
+          <ComboBox Grid.Column="1" ItemsSource="{Binding ExportModeOptions}"
+                    SelectedItem="{Binding ExportModeEnum}" HorizontalAlignment="Stretch" FontSize="11.5"/>
+        </Grid>
+
+        <!-- 指定像素尺寸 -->
+        <Border Classes="card" IsVisible="{Binding IsPixelExportMode}">
+          <StackPanel Spacing="7">
+            <Grid ColumnDefinitions="66,*" ColumnSpacing="6">
+              <TextBlock Grid.Column="0" Classes="label" Text="宽"/>
+              <NumericUpDown Grid.Column="1" Value="{Binding ExportTargetWidth}" Minimum="1" Maximum="20000"
+                             Increment="10" FontSize="11.5" HorizontalAlignment="Stretch" MinHeight="28"/>
+            </Grid>
+            <Grid ColumnDefinitions="66,*" ColumnSpacing="6">
+              <TextBlock Grid.Column="0" Classes="label" Text="高"/>
+              <NumericUpDown Grid.Column="1" Value="{Binding ExportTargetHeight}" Minimum="1" Maximum="20000"
+                             Increment="10" FontSize="11.5" HorizontalAlignment="Stretch" MinHeight="28"/>
+            </Grid>
+            <CheckBox Content="锁定宽高比" IsChecked="{Binding ExportKeepAspect}" FontSize="11.5"/>
+            <StackPanel Orientation="Horizontal" Spacing="4" Margin="0,1,0,0">
+              <Button Classes="tb-auto" Content="100%" Tag="1"    Click="OnScalePreset" ToolTip.Tip="原图尺寸"/>
+              <Button Classes="tb-auto" Content="75%"  Tag="0.75" Click="OnScalePreset"/>
+              <Button Classes="tb-auto" Content="50%"  Tag="0.5"  Click="OnScalePreset"/>
+              <Button Classes="tb-auto" Content="25%"  Tag="0.25" Click="OnScalePreset"/>
+              <Button Classes="tb-auto" Content="1920 宽" Tag="w1920" Click="OnScalePreset"
+                      ToolTip.Tip="宽度固定 1920，高按比例"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="5">
+              <TextBlock Text="缩放" Classes="dim"/>
+              <TextBlock Text="{Binding ExportScaleText}" FontWeight="SemiBold"/>
+              <TextBlock Text="·" Classes="dim"/>
+              <TextBlock Text="{Binding ExportSummaryText}" Classes="dim" TextTrimming="CharacterEllipsis"/>
+            </StackPanel>
+          </StackPanel>
+        </Border>
+
+        <!-- 指定文件体积 -->
+        <Border Classes="card" IsVisible="{Binding IsFileSizeExportMode}">
+          <StackPanel Spacing="7">
+            <Grid ColumnDefinitions="66,*" ColumnSpacing="6">
+              <TextBlock Grid.Column="0" Classes="label" Text="目标"/>
+              <Grid Grid.Column="1" ColumnDefinitions="*,34" ColumnSpacing="6">
+                <NumericUpDown Value="{Binding ExportTargetKb}" Minimum="1" Maximum="100000"
+                               Increment="50" FontSize="11.5" MinHeight="28"/>
+                <TextBlock Grid.Column="1" Text="KB" Classes="dim" VerticalAlignment="Center"/>
+              </Grid>
+            </Grid>
+            <TextBlock Text="有损格式（JPEG / WebP）二分搜索质量；无损格式（PNG / BMP / TIFF）二分缩放尺寸。"
+                       Classes="dim" FontSize="10.5" TextWrapping="Wrap" Opacity="0.85"/>
+          </StackPanel>
+        </Border>
+
+        <!-- 格式 / 质量 / 插值 -->
+        <Grid ColumnDefinitions="66,*" ColumnSpacing="6">
+          <TextBlock Grid.Column="0" Classes="label" Text="格式"/>
+          <ComboBox Grid.Column="1" ItemsSource="{Binding FormatOptions}"
+                    SelectedItem="{Binding ExportFormat}" HorizontalAlignment="Stretch" FontSize="11.5"/>
+        </Grid>
+
+        <Grid ColumnDefinitions="66,*" ColumnSpacing="6">
+          <TextBlock Grid.Column="0" Classes="label" Text="质量"/>
+          <Grid Grid.Column="1" ColumnDefinitions="*,34" ColumnSpacing="6">
+            <Slider Minimum="1" Maximum="100" Value="{Binding ExportQuality}" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="1" Text="{Binding ExportQuality, StringFormat={}{0:0}}" Classes="dim"
+                       VerticalAlignment="Center"/>
+          </Grid>
+        </Grid>
+
+        <Grid ColumnDefinitions="66,*" ColumnSpacing="6">
+          <TextBlock Grid.Column="0" Classes="label" Text="插值"/>
+          <ComboBox Grid.Column="1" ItemsSource="{Binding InterpolationFilterOptions}"
+                    SelectedItem="{Binding ExportFilterEnum}" HorizontalAlignment="Stretch" FontSize="11.5"/>
+        </Grid>
+
+        <CheckBox Content="把标注烙进导出图" IsChecked="{Binding ExportBake}" FontSize="11.5"/>
+      </StackPanel>
+    </ScrollViewer>
+
+    <!-- ============ 底部操作 ============ -->
+    <Border Grid.Row="2" Background="{DynamicResource YhChrome}"
+            BorderThickness="0,1,0,0" BorderBrush="{DynamicResource YhBorder}"
+            Padding="14,10">
+      <StackPanel Spacing="8">
+        <TextBlock Text="导出会保留当前旋转 / 翻转；缩放仍以原始像素为准（不会放大模糊）。"
+                   Classes="dim" FontSize="10.5" TextWrapping="Wrap" Opacity="0.8"/>
+        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+          <TextBlock Grid.Column="0" Text="{Binding ExportSummaryText}" Classes="dim"
+                     VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+          <Button Grid.Column="1" Classes="tb-auto" Content="取消" MinWidth="74" Click="OnCancelClick"/>
+          <Button Grid.Column="2" Classes="accent" Height="30" MinWidth="112" Click="OnSaveClick"
+                  ToolTip.Tip="选择保存位置并写出文件">
+            <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+              <Path Classes="icon" Data="{StaticResource ic_export}" Width="14" Height="14"/>
+              <TextBlock Text="另存为…" FontSize="11.5" VerticalAlignment="Center"/>
+            </StackPanel>
+          </Button>
+        </Grid>
+      </StackPanel>
+    </Border>
+  </Grid>
+</Window>

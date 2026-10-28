@@ -1,0 +1,48 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Yuehua.Views.ClosePromptDialog"
+        Title="未保存的更改"
+        Width="460" SizeToContent="Height" CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource YhChrome}"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaTitleBarHeightHint="38"
+        WindowDecorations="BorderOnly">
+
+  <Grid RowDefinitions="38,Auto">
+    <!-- ============ 标题栏 ============ -->
+    <Border Grid.Row="0" Background="{DynamicResource YhChrome}"
+            BorderThickness="0,0,0,1" BorderBrush="{DynamicResource YhBorder}"
+            PointerPressed="OnTitleBarPointerPressed">
+      <Grid ColumnDefinitions="Auto,*,Auto" Margin="13,0,0,0">
+        <TextBlock Grid.Column="1" Text="未保存的更改"
+                   FontWeight="SemiBold" FontSize="12.5"
+                   VerticalAlignment="Center" Margin="9,0,0,0"/>
+        <Button Grid.Column="2" Classes="win" Width="44" Height="38"
+                Click="OnCancel" ToolTip.Tip="取消">
+          <Path Classes="icon" Data="{StaticResource ic_close}" Width="12" Height="12"/>
+        </Button>
+      </Grid>
+    </Border>
+
+    <!-- ============ 内容 ============ -->
+    <Grid Grid.Row="1" RowDefinitions="*,Auto" Margin="18,14">
+      <StackPanel Grid.Row="0" Spacing="8" Margin="0,0,0,14">
+        <TextBlock Text="图片已旋转 / 翻转，关闭前是否保存？"
+                   FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap"/>
+        <TextBlock Classes="dim" FontSize="11.5" TextWrapping="Wrap"
+                   Text="保存：打开「另存为」把当前旋转 / 翻转后的图像导出为新文件；不保存：直接关闭；取消：留在程序内。"/>
+      </StackPanel>
+      <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+        <Button Classes="tb-auto" Content="取消" MinWidth="74" Click="OnCancel"/>
+        <Button Classes="tb-auto" Content="不保存" MinWidth="84" Click="OnDiscard"/>
+        <Button Classes="accent" Height="30" MinWidth="112" Click="OnSave">
+          <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+            <Path Classes="icon" Data="{StaticResource ic_export}" Width="14" Height="14"/>
+            <TextBlock Text="保存并关闭" FontSize="11.5" VerticalAlignment="Center"/>
+          </StackPanel>
+        </Button>
+      </StackPanel>
+    </Grid>
+  </Grid>
+</Window>

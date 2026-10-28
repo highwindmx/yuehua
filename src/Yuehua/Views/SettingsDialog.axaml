@@ -1,0 +1,91 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:Yuehua.ViewModels"
+        x:Class="Yuehua.Views.SettingsDialog"
+        x:DataType="vm:MainViewModel"
+        Title="设置"
+        Width="386" SizeToContent="Height" CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        FontSize="12.5"
+        Background="{DynamicResource YhChrome}"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaTitleBarHeightHint="38"
+        WindowDecorations="BorderOnly">
+
+  <Grid RowDefinitions="38,*,Auto">
+
+    <!-- 标题栏 -->
+    <Border Grid.Row="0" Background="{DynamicResource YhChrome}"
+            BorderThickness="0,0,0,1" BorderBrush="{DynamicResource YhBorder}"
+            PointerPressed="OnTitleBarPointerPressed">
+      <Grid ColumnDefinitions="Auto,*,Auto" Margin="13,0,0,0">
+        <Path Grid.Column="0" Classes="icon" Width="15" Height="15"
+              Data="{StaticResource ic_settings}" VerticalAlignment="Center"/>
+        <TextBlock Grid.Column="1" Text="设置" FontWeight="SemiBold" FontSize="12.5"
+                   VerticalAlignment="Center" Margin="9,0,0,0"/>
+        <Button Grid.Column="2" Classes="win" Width="44" Height="38" Click="OnCloseClick"
+                ToolTip.Tip="关闭">
+          <Path Classes="icon" Data="{StaticResource ic_close}" Width="12" Height="12"/>
+        </Button>
+      </Grid>
+    </Border>
+
+    <ScrollViewer Grid.Row="1" Padding="14,12" MaxHeight="480">
+      <StackPanel Spacing="10">
+
+        <!-- 工具条样式 -->
+        <Border Classes="card">
+          <StackPanel Spacing="7">
+            <TextBlock Text="工具条样式" FontWeight="SemiBold" FontSize="12"/>
+            <CheckBox Content="顶栏工具条浮动" IsChecked="{Binding TopBarFloating}" FontSize="11.5"/>
+            <CheckBox Content="标注工具箱浮动" IsChecked="{Binding ToolboxFloating}" FontSize="11.5"/>
+            <CheckBox Content="缩略图条浮动" IsChecked="{Binding ThumbsFloating}" FontSize="11.5"/>
+            <TextBlock Text="浮动：圆角 + 阴影浮在画面之上，可用条上的手柄拖动位置；取消勾选则贴回边缘固定。"
+                       Classes="dim" FontSize="10.5" TextWrapping="Wrap" Opacity="0.85"/>
+          </StackPanel>
+        </Border>
+
+        <!-- 显示行为 -->
+        <Border Classes="card">
+          <StackPanel Spacing="7">
+            <TextBlock Text="显示行为" FontWeight="SemiBold" FontSize="12"/>
+            <Grid ColumnDefinitions="62,*" ColumnSpacing="6">
+              <TextBlock Grid.Column="0" Classes="label" Text="方式"/>
+              <ComboBox Grid.Column="1" SelectedIndex="{Binding FadeModeIndex}"
+                        HorizontalAlignment="Stretch" FontSize="11.5">
+                <ComboBoxItem Content="常驻悬浮"/>
+                <ComboBoxItem Content="空闲自动淡出"/>
+              </ComboBox>
+            </Grid>
+            <Grid ColumnDefinitions="62,*" ColumnSpacing="6">
+              <TextBlock Grid.Column="0" Classes="label" Text="延时"/>
+              <Grid Grid.Column="1" ColumnDefinitions="*,40" ColumnSpacing="6">
+                <Slider Minimum="0.5" Maximum="10" Value="{Binding FadeDelaySeconds}"
+                        IsEnabled="{Binding AutoFade}" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="1" Text="{Binding FadeDelaySeconds, StringFormat={}{0:0.0}s}"
+                           Classes="dim" VerticalAlignment="Center"/>
+              </Grid>
+            </Grid>
+            <TextBlock Text="自动淡出只对浮动工具条生效：鼠标静止到延时后淡出，一动即恢复；鼠标停在工具条上不会淡出。"
+                       Classes="dim" FontSize="10.5" TextWrapping="Wrap" Opacity="0.85"/>
+          </StackPanel>
+        </Border>
+
+        <Button Height="30" HorizontalAlignment="Stretch" Content="复位工具条位置"
+                Click="OnResetPositions" ToolTip.Tip="浮动位置恢复默认（顶栏居中贴顶 / 工具箱左中 / 缩略图贴底）"/>
+      </StackPanel>
+    </ScrollViewer>
+
+    <!-- 底部 -->
+    <Border Grid.Row="2" Background="{DynamicResource YhChrome}"
+            BorderThickness="0,1,0,0" BorderBrush="{DynamicResource YhBorder}" Padding="14,10">
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Grid.Column="0" Text="设置即时生效，保存在 %LOCALAPPDATA%\Yuehua\settings.json"
+                   Classes="dim" FontSize="10.5" VerticalAlignment="Center" TextWrapping="Wrap" Opacity="0.8"/>
+        <Button Grid.Column="1" Classes="accent" Height="30" MinWidth="86" Click="OnCloseClick">
+          <TextBlock Text="完成" FontSize="11.5" VerticalAlignment="Center"/>
+        </Button>
+      </Grid>
+    </Border>
+  </Grid>
+</Window>
