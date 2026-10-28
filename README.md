@@ -23,7 +23,9 @@ dotnet restore
 dotnet publish src/Yuehua -c Release -r win-x64 --self-contained
 ```
 
-AOT 原生产物位于 `src/Yuehua/bin/Release/net10.0/win-x64/publish/`（约 21 MB 单文件 + 依赖，共约 63 MB）。
+AOT 原生产物位于 `src/Yuehua/bin/Release/net10.0/win-x64/publish/`（约 22 MB 的 `Yuehua.exe` + 4 个原生依赖 DLL：`Magick.Native-Q8-x64.dll` / `libSkiaSharp.dll` / `av_libglesv2.dll` / `libHarfBuzzSharp.dll`，共约 63 MB）。
+
+> **分享给别人**：由于 Magick / Skia 原生库在 NativeAOT 单文件打包时会出现版本错乱（运行报 libSkiaSharp 版本不匹配），**单文件 exe 不可靠**。推荐做法：把整个 `publish/` 目录打包成 zip（仓库已生成 `yuehua-win-x64.zip`，约 25 MB），对方解压后双击 `Yuehua.exe` 即可，**无需安装 .NET**。**切勿只发一个 exe**——缺少旁侧的 4 个 DLL 会无法启动。
 
 若链接阶段报 `Platform linker not found` 或 `LNK1181`（注册表探测被拦截的环境），改用一键脚本：
 

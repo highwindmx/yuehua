@@ -198,15 +198,17 @@ internal static class Program
         return sharp;
     }
 
-    /// <summary>把四个角的 2×2 像素强制设为完全透明，作为极小尺寸（如 16px）圆角退化的兜底。</summary>
+    /// <summary>把四个角强制设为完全透明：极小尺寸（如 16px）下圆角抗锯齿边缘可能残留半透明像素，
+    /// 故把每个角清成 n×n 方块（n 取 3 与边长的较小值）兜底，保证任何尺寸下四角都透。</summary>
     private static void ForceTransparentCorners(MagickImage img)
     {
         var w = (int)img.Width;
         var h = (int)img.Height;
+        var n = Math.Min(3, Math.Min(w, h));   // 角部清 3×3（极小尺寸取更小）
         var zero = new byte[] { 0, 0, 0, 0 };   // Q8：RGBA，全 0 = 透明
         using var px = img.GetPixels();
-        for (var i = 0; i < 2 && i < w; i++)
-            for (var j = 0; j < 2 && j < h; j++)
+        for (var i = 0; i < n; i++)
+            for (var j = 0; j < n; j++)
             {
                 px.SetPixel(i, j, zero);
                 px.SetPixel(w - 1 - i, j, zero);
