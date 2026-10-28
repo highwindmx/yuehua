@@ -65,6 +65,10 @@ public partial class MainWindow : Window
         // 关闭前：若有未保存的视图变换（旋转 / 翻转），弹「是否保存」提示
         Closing += OnClosing;
 
+        // 窗口允许缩得很小（MinWidth=340）：顶栏卡片宽度始终钳制在窗口内，工具条可横向滚动。
+        // （ThumbsCard 的 MaxWidth 走 VM 绑定，停靠时为 Stretch 布局天然不溢出，不在代码里覆盖）
+        SizeChanged += (_, e) => TopBarCard.MaxWidth = Math.Max(120, e.NewSize.Width - 12);
+
         // 图标（任务栏 / 系统标题栏 / 左上角品牌位）：从 Avalonia 资源加载，AOT 下同样可用。
         // 用 try 包裹：资源缺失只影响观感，不应导致窗口构造失败。
         try

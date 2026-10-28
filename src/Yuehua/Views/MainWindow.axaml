@@ -7,7 +7,7 @@
         x:DataType="vm:MainViewModel"
         Title="阅画 Yuehua"
         Width="1240" Height="800"
-        MinWidth="1060" MinHeight="480"
+        MinWidth="340" MinHeight="240"
         FontSize="12.5"
         Background="{DynamicResource YhCanvas}"
         ExtendClientAreaToDecorationsHint="True"
@@ -100,7 +100,8 @@
               <DoubleTransition Property="Opacity" Duration="0:0:0.18"/>
             </Transitions>
           </Border.Transitions>
-          <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="1">
+          <ScrollViewer HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="1">
 
             <Border Classes="grip grip-v" Tag="top" IsVisible="{Binding TopBarFloating}"
                     PointerPressed="OnGripPressed" PointerMoved="OnGripMoved" PointerReleased="OnGripReleased">
@@ -191,6 +192,7 @@
               <Path Classes="icon" Data="{StaticResource ic_thumbs}"/>
             </ToggleButton>
           </StackPanel>
+          </ScrollViewer>
         </Border>
 
         <!-- ====== 左侧标注工具箱（仅标注模式出现）====== -->
