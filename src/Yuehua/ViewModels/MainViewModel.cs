@@ -81,7 +81,7 @@ public partial class MainViewModel : ObservableObject
 
     private static readonly HashSet<string> ImageExts = new(StringComparer.OrdinalIgnoreCase)
     {
-        ".jpg", ".jpeg", ".png", ".webp", ".bmp", ".gif", ".tif", ".tiff",
+        ".jpg", ".jpeg", ".png", ".webp", ".bmp", ".gif", ".tif", ".tiff", ".ico",
         ".heic", ".heif", ".avif", ".cr2", ".nef", ".arw", ".dng", ".raw", ".psd",
     };
 
@@ -109,8 +109,11 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private bool _flipX, _flipY;
     [ObservableProperty] private ScaleMode _viewScaleMode = ScaleMode.Uniform;
 
-    /// <summary>画布真实缩放比（由 ImageView 反向写入，用于状态栏百分比）。</summary>
+    /// <summary>画布真实缩放比（由 ImageView 反向写入，用于校准状态栏百分比）。</summary>
     [ObservableProperty] private double _displayScale = 1;
+    /// <summary>适应窗口的基准比例 = DisplayScale / Zoom。滚轮改 Zoom 时用它即时算百分比，
+    /// 不必等 ImageView 下一帧回写，避免数字滞后或看起来「不显示」。</summary>
+    private double _fitBaseScale = 1;
 
     [ObservableProperty] private ToolType _currentTool = ToolType.Select;
     [ObservableProperty] private string _currentColor = "#FFFF0000";
@@ -133,8 +136,12 @@ public partial class MainViewModel : ObservableObject
     // ---------- 面板 / 主题 ----------
     // 默认打开即「纯看图」：侧边面板与缩略图条均隐藏，打开大文件夹更轻快；需要时再点顶栏按钮唤出。
     [ObservableProperty] private bool _panelVisible = false;
+    /// <summary>侧边面板整体可见性：常显时需用户开启，专注模式（UiVisible=false）下一并隐藏，避免留下空白面板。</summary>
+    public bool PanelChromeVisible => PanelVisible && UiVisible;
     [ObservableProperty] private bool _thumbsVisible = false;
     [ObservableProperty] private bool _isDark = true;
+    /// <summary>底部工具条是否可见（关闭后可由顶栏「底部栏」按钮重新唤出）。</summary>
+    [ObservableProperty] private bool _bottomBarVisible = true;
 
     // ---------- 看图 / 标注 两种模式 ----------
     /// <summary>标注模式：默认关闭，产品定位是「先看图」，标注工具按需唤出。</summary>
@@ -151,6 +158,10 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private string _exportFormat = "jpeg";
     [ObservableProperty] private ExportMode _exportModeEnum = ExportMode.Pixel;
     [ObservableProperty] private InterpolationFilter _exportFilterEnum = InterpolationFilter.Lanczos;
+    [ObservableProperty] private IcoBackgroundMode _exportIcoBackground = IcoBackgroundMode.Transparent;
+    [ObservableProperty] private string _exportIcoBgColor = "#FFFFFF";
+    /// <summary>ICO 最大边长（生成的标准帧中最大的那个）。</summary>
+    [ObservableProperty] private int _exportIcoMaxSize = 256;
     [ObservableProperty] private bool _exportBake = true;
 
     /// <summary>当前图片原始像素尺寸（导出尺寸的基准）。</summary>
@@ -164,17 +175,50 @@ public partial class MainViewModel : ObservableObject
     // 导出 UI 下拉选项（枚举/格式列表，供 ComboBox ItemsSource 绑定）
     public IEnumerable<ExportMode> ExportModeOptions => Enum.GetValues<ExportMode>();
     public IEnumerable<InterpolationFilter> InterpolationFilterOptions => Enum.GetValues<InterpolationFilter>();
-    public IEnumerable<string> FormatOptions => new[] { "jpeg", "png", "webp", "bmp", "tiff" };
+    public IEnumerable<string> FormatOptions => new[] { "jpeg", "png", "webp", "bmp", "tiff", "ico" };
+    public IEnumerable<IcoBackgroundMode> IcoBackgroundOptions => Enum.GetValues<IcoBackgroundMode>();
+    /// <summary>ICO 可选的最大边长（标准图标尺寸）。</summary>
+    public IEnumerable<int> IcoMaxSizeOptions => new[] { 16, 24, 32, 48, 64, 72, 96, 128, 256 };
+    /// <summary>仅 ICO 格式且背景为「自定义」时，才显示底色输入框。</summary>
+    public bool IsIcoCustomBg => IsIcoFormat && ExportIcoBackground == IcoBackgroundMode.Custom;
+
+    /// <summary>当前是否为 ICO 格式（决定隐藏无效选项、显示 ICO 专属选项）。</summary>
+    public bool IsIcoFormat => ExportFormat == "ico";
+    /// <summary>非 ICO 的常规位图格式（方式 / 质量 / 插值 对其有效）。</summary>
+    public bool IsRasterFormat => ExportFormat != "ico";
+    /// <summary>栅格格式的宽/高输入区：ICO 有专属尺寸下拉，不再显示这两项，避免两套尺寸互相干扰。</summary>
+    public bool ShowPixelSizeControls => IsRasterFormat && IsPixelExportMode;
+    /// <summary>按当前最大边长，列出将生成的 ICO 帧尺寸（给用户明确反馈「大小可调」）。</summary>
+    public string IcoFramesHint
+    {
+        get
+        {
+            var sizes = IcoMaxSizeOptions.Where(s => s <= ExportIcoMaxSize).ToList();
+            return sizes.Count == 0
+                ? "无可用尺寸"
+                : $"将生成 {sizes.Count} 帧：{string.Join(" / ", sizes)}（最大 {sizes[^1]} × {sizes[^1]}）";
+        }
+    }
 
     /// <summary>目标宽高相对原图的缩放百分比文本。</summary>
     public string ExportScaleText => ExportSourceWidth > 0
         ? $"{(int)Math.Round(ExportTargetWidth / ExportSourceWidth * 100)}%"
         : "—";
 
-    /// <summary>导出设置一句话摘要（侧栏与对话框共用）。</summary>
-    public string ExportSummaryText => ExportModeEnum == ExportMode.Pixel
-        ? $"{(int)ExportTargetWidth} × {(int)ExportTargetHeight}  ·  {ExportFormat.ToUpper()}  ·  Q{(int)ExportQuality}"
-        : $"≤ {(int)ExportTargetKb} KB  ·  {ExportFormat.ToUpper()}  ·  Q{(int)ExportQuality}";
+    /// <summary>导出设置一句话摘要（侧栏与对话框共用）。ICO 摘要反映专属尺寸与背景，不再显示栅格宽高。</summary>
+    public string ExportSummaryText => IsIcoFormat
+        ? $"ICO 最大 {ExportIcoMaxSize} × {ExportIcoMaxSize}  ·  {IcoBackgroundLabel}  ·  {IcoMaxSizeOptions.Count(s => s <= ExportIcoMaxSize)} 帧"
+        : ExportModeEnum == ExportMode.Pixel
+            ? $"{(int)ExportTargetWidth} × {(int)ExportTargetHeight}  ·  {ExportFormat.ToUpper()}  ·  Q{(int)ExportQuality}"
+            : $"≤ {(int)ExportTargetKb} KB  ·  {ExportFormat.ToUpper()}  ·  Q{(int)ExportQuality}";
+
+    private string IcoBackgroundLabel => ExportIcoBackground switch
+    {
+        IcoBackgroundMode.White => "白底",
+        IcoBackgroundMode.Black => "黑底",
+        IcoBackgroundMode.Custom => $"底色 {ExportIcoBgColor}",
+        _ => "透明底",
+    };
 
     public LoadedImage? Current => _current;
     // 每次取一个新列表引用：撤销 / 重做会原地清空再填充 _engine.Layers（同一对象），
@@ -195,7 +239,7 @@ public partial class MainViewModel : ObservableObject
 
     // ---------- 派生 UI 属性（状态栏 / 面板可见性联动）----------
     public string PositionText => ImageCount > 0 ? $"{CurrentIndex + 1} / {ImageCount}" : "—";
-    public string ZoomPercentText => $"{(int)Math.Round(DisplayScale * 100)}%";
+    public string ZoomPercentText => $"{(int)Math.Round(_fitBaseScale * Zoom * 100)}%";
     public bool HasMultiple => ImageCount > 1;
     public bool HasAnnotations => _engine.Layers.Any(l => l.Items.Count > 0);
     public bool IsEffectTool => CurrentTool is ToolType.Mosaic or ToolType.Blur;
@@ -216,55 +260,60 @@ public partial class MainViewModel : ObservableObject
     /// <summary>持久化设置（读写 %LOCALAPPDATA%\Yuehua\settings.json）。</summary>
     public AppSettings Settings { get; } = SettingsService.Load();
 
-    [ObservableProperty] private bool _topBarFloating;
     [ObservableProperty] private bool _toolboxFloating;
     [ObservableProperty] private bool _thumbsFloating;
-    [ObservableProperty] private bool _autoFade;
+    [ObservableProperty] private ToolbarRevealMode _revealMode = ToolbarRevealMode.IdleFade;
     [ObservableProperty] private double _fadeDelaySeconds = 2;
 
-    /// <summary>当前是否处于「空闲淡出」态，由窗口空闲计时器驱动。</summary>
+    /// <summary>当前是否处于「空闲淡出」态（IdleFade 模式），由窗口空闲计时器驱动。</summary>
     private bool _faded;
 
     public MainViewModel()
     {
         SyncColorBrush();
-        _topBarFloating = Settings.TopBarFloating;
         _toolboxFloating = Settings.ToolboxFloating;
         _thumbsFloating = Settings.ThumbsFloating;
-        _autoFade = Settings.AutoFade;
+        _revealMode = Settings.RevealMode;
         _fadeDelaySeconds = Settings.FadeDelaySeconds;
+
+        // 旧版设置文件只有 AutoFade（bool）没有 RevealMode：迁移一次后清掉旧字段。
+        if (Settings.AutoFade is { } legacyAutoFade)
+        {
+            _revealMode = legacyAutoFade ? ToolbarRevealMode.IdleFade : ToolbarRevealMode.Always;
+            Settings.RevealMode = _revealMode;
+            Settings.AutoFade = null;
+            SettingsService.Save(Settings);
+        }
     }
 
     private static readonly BoxShadows CardShadow =
         new(new BoxShadow { Blur = 20, OffsetX = 0, OffsetY = 4, Color = Color.FromArgb(0x5A, 0, 0, 0) });
 
-    /// <summary>0=常驻悬浮 1=空闲自动淡出（供设置对话框的 ComboBox）。</summary>
-    public int FadeModeIndex { get => AutoFade ? 1 : 0; set => AutoFade = value == 1; }
+    /// <summary>0=常驻 1=空闲自动淡出（供设置对话框的 ComboBox；旧版「悬停上缘」已随顶栏固定而废弃，读到该值回落为「空闲自动淡出」）。</summary>
+    public int RevealModeIndex
+    {
+        get => (int)RevealMode > 1 ? 1 : (int)RevealMode;
+        set => RevealMode = (ToolbarRevealMode)Math.Clamp(value, 0, 1);
+    }
+
+    /// <summary>设置对话框里「延时」滑块的可用条件。</summary>
+    public bool IsIdleFade => RevealMode == ToolbarRevealMode.IdleFade;
 
     // ---------- 卡片外观：浮动=圆角+阴影+半透明，固定=贴边+方角 ----------
-    public CornerRadius TopBarRadius => TopBarFloating ? new CornerRadius(10) : new CornerRadius(0);
     public CornerRadius ToolboxRadius => ToolboxFloating ? new CornerRadius(10) : new CornerRadius(0);
     public CornerRadius ThumbsRadius => ThumbsFloating ? new CornerRadius(10) : new CornerRadius(0);
 
-    public BoxShadows TopBarShadow => TopBarFloating ? CardShadow : default;
     public BoxShadows ToolboxShadow => ToolboxFloating ? CardShadow : default;
     public BoxShadows ThumbsShadow => ThumbsFloating ? CardShadow : default;
 
-    public Thickness TopBarBorderThickness => TopBarFloating ? new Thickness(0) : new Thickness(0, 0, 0, 1);
     public Thickness ToolboxBorderThickness => ToolboxFloating ? new Thickness(0) : new Thickness(0, 0, 1, 0);
     public Thickness ThumbsBorderThickness => ThumbsFloating ? new Thickness(0) : new Thickness(0, 1, 0, 0);
 
     // ---------- 卡片位置：null=默认，有值=相对画布左上角的像素 ----------
-    public Thickness TopBarMargin => TopBarFloating
-        ? new Thickness(Settings.TopBarX ?? 0, Settings.TopBarY ?? 10, 0, 0) : new Thickness(0);
     public Thickness ToolboxMargin => ToolboxFloating
         ? new Thickness(Settings.ToolboxX ?? 12, Settings.ToolboxY ?? 0, 0, 0) : new Thickness(0);
     public Thickness ThumbsMargin => ThumbsFloating
         ? new Thickness(Settings.ThumbsX ?? 0, Settings.ThumbsY ?? 12, 0, 0) : new Thickness(0);
-
-    public HorizontalAlignment TopBarHAlign => !TopBarFloating ? HorizontalAlignment.Stretch
-        : Settings.TopBarX.HasValue ? HorizontalAlignment.Left : HorizontalAlignment.Center;
-    public VerticalAlignment TopBarVAlign => VerticalAlignment.Top;
 
     public HorizontalAlignment ToolboxHAlign => HorizontalAlignment.Left;
     public VerticalAlignment ToolboxVAlign => !ToolboxFloating ? VerticalAlignment.Stretch
@@ -284,21 +333,20 @@ public partial class MainViewModel : ObservableObject
     /// </summary>
     public Thickness CanvasMargin => new Thickness(
         !ToolboxFloating && AnnotateMode ? 44 : 0,
-        !TopBarFloating ? 38 : 0,
+        34,
         0,
         !ThumbsFloating && ThumbsVisible ? 86 : 0);
 
-    // ---------- 淡出：只作用于浮动卡片；固定卡片恒不透明、恒可点击 ----------
+    // ---------- 淡出 / 隐藏：只作用于浮动卡片；固定卡片恒不透明、恒可点击 ----------
     /// <summary>专注模式（F11）下浮动工具条一并隐藏，画面只留图像本身。</summary>
-    public bool TopBarVisible => UiVisible;
     public bool ToolboxVisible => UiVisible && AnnotateMode;
     public bool ThumbsBarVisible => UiVisible && ThumbsVisible;
 
-    public double TopBarOpacity => !TopBarFloating ? 1.0 : _faded ? 0.0 : 0.97;
-    public double ToolboxOpacity => !ToolboxFloating ? 1.0 : _faded ? 0.0 : 0.97;
-    public double ThumbsOpacity => !ThumbsFloating ? 1.0 : _faded ? 0.0 : 0.97;
+    // 悬浮卡片本身的半透明由画刷（YhGlassPanel）负责，这里只管「显示 / 隐藏」，
+    // 所以可见时保持 1.0：图标与文字不被整体降透明度，玻璃感来自底下的 alpha。
+    public double ToolboxOpacity => !ToolboxFloating ? 1.0 : _faded ? 0.0 : 1.0;
+    public double ThumbsOpacity => !ThumbsFloating ? 1.0 : _faded ? 0.0 : 1.0;
 
-    public bool TopBarHitTest => !TopBarFloating || !_faded;
     public bool ToolboxHitTest => !ToolboxFloating || !_faded;
     public bool ThumbsHitTest => !ThumbsFloating || !_faded;
     public bool IsFaded => _faded;
@@ -316,7 +364,6 @@ public partial class MainViewModel : ObservableObject
     {
         switch (which)
         {
-            case "top": Settings.TopBarX = x; Settings.TopBarY = y; break;
             case "tools": Settings.ToolboxX = x; Settings.ToolboxY = y; break;
             case "thumbs": Settings.ThumbsX = x; Settings.ThumbsY = y; break;
             default: return;
@@ -327,7 +374,6 @@ public partial class MainViewModel : ObservableObject
     /// <summary>所有浮动卡片回到默认位置。</summary>
     public void ResetFloatPositions()
     {
-        Settings.TopBarX = Settings.TopBarY = null;
         Settings.ToolboxX = Settings.ToolboxY = null;
         Settings.ThumbsX = Settings.ThumbsY = null;
         NotifyChrome();
@@ -336,44 +382,29 @@ public partial class MainViewModel : ObservableObject
 
     private void NotifyChrome()
     {
-        OnPropertyChanged(nameof(TopBarRadius));
         OnPropertyChanged(nameof(ToolboxRadius));
         OnPropertyChanged(nameof(ThumbsRadius));
-        OnPropertyChanged(nameof(TopBarShadow));
         OnPropertyChanged(nameof(ToolboxShadow));
         OnPropertyChanged(nameof(ThumbsShadow));
-        OnPropertyChanged(nameof(TopBarBorderThickness));
         OnPropertyChanged(nameof(ToolboxBorderThickness));
         OnPropertyChanged(nameof(ThumbsBorderThickness));
-        OnPropertyChanged(nameof(TopBarMargin));
         OnPropertyChanged(nameof(ToolboxMargin));
         OnPropertyChanged(nameof(ThumbsMargin));
-        OnPropertyChanged(nameof(TopBarHAlign));
-        OnPropertyChanged(nameof(TopBarVAlign));
         OnPropertyChanged(nameof(ToolboxHAlign));
         OnPropertyChanged(nameof(ToolboxVAlign));
         OnPropertyChanged(nameof(ThumbsHAlign));
         OnPropertyChanged(nameof(ThumbsVAlign));
         OnPropertyChanged(nameof(ThumbsMaxWidth));
         OnPropertyChanged(nameof(CanvasMargin));
-        OnPropertyChanged(nameof(TopBarVisible));
         OnPropertyChanged(nameof(ToolboxVisible));
         OnPropertyChanged(nameof(ThumbsBarVisible));
-        OnPropertyChanged(nameof(TopBarOpacity));
         OnPropertyChanged(nameof(ToolboxOpacity));
         OnPropertyChanged(nameof(ThumbsOpacity));
-        OnPropertyChanged(nameof(TopBarHitTest));
         OnPropertyChanged(nameof(ToolboxHitTest));
         OnPropertyChanged(nameof(ThumbsHitTest));
         OnPropertyChanged(nameof(IsFaded));
-        OnPropertyChanged(nameof(FadeModeIndex));
-    }
-
-    partial void OnTopBarFloatingChanged(bool value)
-    {
-        Settings.TopBarFloating = value;
-        SettingsService.Save(Settings);
-        NotifyChrome();
+        OnPropertyChanged(nameof(RevealModeIndex));
+        OnPropertyChanged(nameof(IsIdleFade));
     }
 
     partial void OnToolboxFloatingChanged(bool value)
@@ -390,11 +421,13 @@ public partial class MainViewModel : ObservableObject
         NotifyChrome();
     }
 
-    partial void OnAutoFadeChanged(bool value)
+    partial void OnRevealModeChanged(ToolbarRevealMode value)
     {
-        Settings.AutoFade = value;
+        Settings.RevealMode = value;
         SettingsService.Save(Settings);
-        if (!value) SetFaded(false);              // 切回常驻：立刻恢复显示
+
+        // 切换方式时复位淡出态，避免残留不可见状态
+        if (_faded) SetFaded(false);
         NotifyChrome();
     }
 
@@ -434,8 +467,18 @@ public partial class MainViewModel : ObservableObject
     {
         if (value == 0 && !AnnotateMode) AnnotateMode = true;
     }
-    partial void OnZoomChanged(double value) => OnPropertyChanged(nameof(ZoomPercentText));
-    partial void OnDisplayScaleChanged(double value) => OnPropertyChanged(nameof(ZoomPercentText));
+    partial void OnZoomChanged(double value)
+    {
+        // 滚轮 / +/- 缩放立即反映到百分比，不等渲染帧。
+        // 注意不能用旧的 DisplayScale 除以新 Zoom 去反推基准（会互相抵消，数字不动）；
+        // 基准保持上次校准值，等 ImageView 下一帧回写 DisplayScale 时再校准。
+        OnPropertyChanged(nameof(ZoomPercentText));
+    }
+    partial void OnDisplayScaleChanged(double value)
+    {
+        if (Zoom > 0) _fitBaseScale = value / Zoom;
+        OnPropertyChanged(nameof(ZoomPercentText));
+    }
     partial void OnCurrentToolChanged(ToolType value) => OnPropertyChanged(nameof(IsEffectTool));
     partial void OnCurrentColorChanged(string value) => SyncColorBrush();
 
@@ -449,20 +492,48 @@ public partial class MainViewModel : ObservableObject
 
     partial void OnUiVisibleChanged(bool value)
     {
-        OnPropertyChanged(nameof(TopBarVisible));
         OnPropertyChanged(nameof(ToolboxVisible));
         OnPropertyChanged(nameof(ThumbsBarVisible));
+        OnPropertyChanged(nameof(PanelChromeVisible));
+    }
+
+    partial void OnPanelVisibleChanged(bool value)
+    {
+        OnPropertyChanged(nameof(PanelChromeVisible));
     }
 
     partial void OnExportModeEnumChanged(ExportMode value)
     {
         OnPropertyChanged(nameof(IsPixelExportMode));
         OnPropertyChanged(nameof(IsFileSizeExportMode));
+        OnPropertyChanged(nameof(ShowPixelSizeControls));
         OnPropertyChanged(nameof(ExportSummaryText));
     }
 
     partial void OnExportQualityChanged(double value) => OnPropertyChanged(nameof(ExportSummaryText));
-    partial void OnExportFormatChanged(string value) => OnPropertyChanged(nameof(ExportSummaryText));
+    partial void OnExportFormatChanged(string value)
+    {
+        OnPropertyChanged(nameof(ExportSummaryText));
+        OnPropertyChanged(nameof(IsIcoFormat));
+        OnPropertyChanged(nameof(IsRasterFormat));
+        OnPropertyChanged(nameof(ShowPixelSizeControls));
+        OnPropertyChanged(nameof(IcoFramesHint));
+        OnPropertyChanged(nameof(IsIcoCustomBg));
+    }
+
+    partial void OnExportIcoBackgroundChanged(IcoBackgroundMode value)
+    {
+        OnPropertyChanged(nameof(IsIcoCustomBg));
+        OnPropertyChanged(nameof(ExportSummaryText));
+    }
+
+    partial void OnExportIcoBgColorChanged(string value) => OnPropertyChanged(nameof(ExportSummaryText));
+
+    partial void OnExportIcoMaxSizeChanged(int value)
+    {
+        OnPropertyChanged(nameof(IcoFramesHint));
+        OnPropertyChanged(nameof(ExportSummaryText));
+    }
     partial void OnExportTargetKbChanged(double value) => OnPropertyChanged(nameof(ExportSummaryText));
 
     partial void OnExportTargetWidthChanged(double value)
@@ -583,16 +654,17 @@ public partial class MainViewModel : ObservableObject
         return -1;
     }
 
-    public void LoadFolder(string folder, string? initialFile = null)
+    /// <summary>打开文件夹；initialFile 为可选的高亮文件，directOpen 表示用户「主动打开」（失败时弹错误提示）。</summary>
+    public void LoadFolder(string folder, string? initialFile = null, bool directOpen = false)
     {
         if (!Directory.Exists(folder)) return;
         var files = ScanImages(folder);
         if (files.Count == 0) { StatusText = "该文件夹没有支持的图片格式"; return; }
-        LoadList(files, Path.GetFullPath(folder), initialFile);
+        LoadList(files, Path.GetFullPath(folder), initialFile, directOpen);
     }
 
     /// <summary>加载一组文件：单文件时自动扩展到同目录全部图片（保证上下张可用）。</summary>
-    public void LoadFiles(IEnumerable<string> paths)
+    public void LoadFiles(IEnumerable<string> paths, bool directOpen = false)
     {
         var list = paths.Where(File.Exists).Select(Path.GetFullPath).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         if (list.Count == 0) return;
@@ -602,7 +674,7 @@ public partial class MainViewModel : ObservableObject
             var dir = Path.GetDirectoryName(list[0]);
             if (!string.IsNullOrEmpty(dir) && Directory.Exists(dir))
             {
-                LoadFolder(dir, list[0]);
+                LoadFolder(dir, list[0], directOpen);
                 return;
             }
         }
@@ -614,27 +686,62 @@ public partial class MainViewModel : ObservableObject
         if (sameDir)
         {
             list.Sort(NaturalCompare);
-            LoadList(list, Path.GetDirectoryName(list[0]) ?? "", list[0]);
+            LoadList(list, Path.GetDirectoryName(list[0]) ?? "", list[0], directOpen);
             return;
         }
 
         list.Sort(NaturalCompare);
-        LoadList(list, "", list[0]);
+        LoadList(list, "", list[0], directOpen);
     }
 
-    private void LoadList(List<string> files, string folder, string? initialFile)
+    /// <summary>
+    /// 按「文件夹优先 → 单个文件 → 多个文件」打开一组路径。
+    /// 拖放进窗口、拖到桌面快捷方式、命令行参数、右键「打开方式」最终都汇聚到这里。
+    /// 这些都属于用户主动打开，标记 directOpen = true（失败时给出错误提示）。
+    /// </summary>
+    public void OpenPaths(IEnumerable<string> paths)
+    {
+        var dirs = new List<string>();
+        var files = new List<string>();
+        foreach (var raw in paths)
+        {
+            if (string.IsNullOrWhiteSpace(raw)) continue;
+            string full;
+            try { full = Path.GetFullPath(raw.Trim().Trim('"')); }
+            catch { continue; }                        // 非法路径：忽略
+            if (Directory.Exists(full)) dirs.Add(full);
+            else if (File.Exists(full)) files.Add(full);
+        }
+
+        if (dirs.Count > 0) { LoadFolder(dirs[0], null, true); return; }
+        if (files.Count > 0) LoadFiles(files, true);
+    }
+
+    /// <summary>主动打开文件失败时由 ViewModel 抛出，供视图层弹出错误对话框。</summary>
+    public event Action<string, string>? RequestOpenError;
+
+    private void LoadList(List<string> files, string folder, string? initialFile, bool directOpen)
     {
         _files = files;
         FolderPath = folder;
         ImageCount = files.Count;
         BuildThumbnailsAsync();
-        var idx = IndexOfPath(files, initialFile);
-        ShowImage(idx < 0 ? 0 : idx);
+        int idx = IndexOfPath(files, initialFile);
+        if (idx < 0 && initialFile != null && File.Exists(initialFile))
+        {
+            // 请求的初始文件不在扫描列表里（扩展名未被收录，例如罕见格式）：
+            // 直接尝试打开它本身，而不是静默跳到别的文件。
+            _files = new List<string> { Path.GetFullPath(initialFile) };
+            ImageCount = 1;
+            idx = 0;
+        }
+        if (idx < 0) idx = 0;
+        _ = ShowImageAsync(idx, directOpen);
     }
 
     /// <summary>
     /// 缩略图异步 / 懒加载：
-    /// - 缩略图条隐藏时不生成，打开文件夹几乎瞬时（避免同目录大量图片时卡顿）；
+    /// - 缩略图条隐藏时不创建任何占位项、也不解码，打开文件夹几乎瞬时（避免同目录大量图片时卡顿）；
     /// - 用户点开缩略图条后才在后台逐张生成，前台先显示文件名占位；
     /// - 切换文件夹会取消上一次未完成的生成；生成中给出「生成缩略图 n/总」进度提示。
     /// </summary>
@@ -644,22 +751,22 @@ public partial class MainViewModel : ObservableObject
         _thumbsCts?.Dispose();
         _thumbsCts = new CancellationTokenSource();
         var cts = _thumbsCts;
-        _thumbsBuilt = true;
+        _thumbsBuilt = false;
+
+        // 缩略图条隐藏：不建占位、不解码，省去开销（之后展开时再构建）
+        if (_files.Count == 0 || !ThumbsVisible)
+        {
+            ThumbsLoading = false;
+            ThumbsProgress = "";
+            return;
+        }
 
         var cap = Math.Min(_files.Count, 200);
         var items = new ObservableCollection<ThumbnailItem>();
         for (var i = 0; i < cap; i++)
             items.Add(new ThumbnailItem { Index = i, Path = _files[i], Name = Path.GetFileName(_files[i]) });
         Thumbnails = items;
-
-        // 隐藏状态：仅占位、不解码，省去大量开销
-        if (cap == 0 || !ThumbsVisible)
-        {
-            _thumbsBuilt = ThumbsVisible && cap > 0;
-            ThumbsLoading = false;
-            ThumbsProgress = "";
-            return;
-        }
+        _thumbsBuilt = true;
 
         ThumbsLoading = true;
         ThumbsProgress = $"生成缩略图 0/{cap}…";
@@ -689,60 +796,83 @@ public partial class MainViewModel : ObservableObject
         }, cts.Token);
     }
 
-    public void ShowImage(int index)
+    private int _loadToken;
+
+    /// <summary>
+    /// 异步打开指定图片：解码放到后台线程，避免大图 / 慢盘时界面冻结；解码完成后回到 UI 线程更新显示。
+    /// _loadToken 保证「最新一次请求」才生效，快速翻页 / 切换文件夹时旧请求的结果会被丢弃。
+    /// directOpen = true 表示这是用户主动打开（失败弹错误提示），导航翻页则只更新状态栏。
+    /// </summary>
+    public async Task ShowImageAsync(int index, bool directOpen = false)
     {
         if (index < 0 || index >= _files.Count) return;
+        var token = ++_loadToken;
         CurrentIndex = index;
         var path = _files[index];
+        StatusText = $"正在打开 {Path.GetFileName(path)}…";
+
+        LoadedImage? loaded = null;
+        Exception? err = null;
         try
         {
             // 注意：_current 来自 ImageCache，其 Full/Display 由缓存管理生命周期，
             // 这里不能 Dispose，否则缓存中的位图失效导致后续翻页崩溃。
-            _current = _cache.GetOrLoad(path);
-            CurrentDisplay = _current.Display;
-            FileName = Path.GetFileName(path);
-            Exif = _current.Exif;
-            ExifList = _current.Exif.Select(kv => new ExifEntry { Key = kv.Key, Value = kv.Value }).ToList();
-            StatusText = $"{_current.OriginalWidth} × {_current.OriginalHeight}  ·  {_current.Format}";
-
-            // 导出基准尺寸；用户没手动改过时，默认导出原图尺寸（100%）
-            _suppressAspect = true;
-            ExportSourceWidth = _current.OriginalWidth;
-            ExportSourceHeight = _current.OriginalHeight;
-            if (_exportSizeAutoSync)
-            {
-                ExportTargetWidth = _current.OriginalWidth;
-                ExportTargetHeight = _current.OriginalHeight;
-            }
-            _suppressAspect = false;
-            OnPropertyChanged(nameof(ExportScaleText));
-            OnPropertyChanged(nameof(ExportSummaryText));
-
-            Zoom = 1; OffsetX = 0; OffsetY = 0; Rotation = 0;
-            FlipX = false; FlipY = false; ViewScaleMode = ScaleMode.Uniform;
-            _transformDirty = false;
-
-            LoadSidecar(path);
-
-            var neigh = new List<string>();
-            if (index > 0) neigh.Add(_files[index - 1]);
-            if (index < _files.Count - 1) neigh.Add(_files[index + 1]);
-            _cache.Prefetch(neigh);
+            loaded = await Task.Run(() => _cache.GetOrLoad(path));
         }
-        catch (Exception ex)
+        catch (Exception ex) { err = ex; }
+
+        if (token != _loadToken) return;       // 已有更新的加载请求，丢弃本次结果
+
+        if (err != null || loaded == null)
         {
-            StatusText = $"打开失败: {ex.Message}";
+            StatusText = $"打开失败: {err?.Message}";
+            if (directOpen) RequestOpenError?.Invoke(Path.GetFileName(path), err?.Message ?? "未知错误");
+            return;
         }
+
+        _current = loaded;
+        CurrentDisplay = loaded.Display;
+        FileName = Path.GetFileName(path);
+        Exif = loaded.Exif;
+        ExifList = loaded.Exif.Select(kv => new ExifEntry { Key = kv.Key, Value = kv.Value }).ToList();
+        // ICO 等多帧容器：明确标注「显示的是最大那一帧」，避免把 256 × 256 误认为文件只有一个尺寸
+        StatusText = loaded.FrameCount > 1
+            ? $"{loaded.OriginalWidth} × {loaded.OriginalHeight}  ·  {loaded.Format}（共 {loaded.FrameCount} 帧，当前显示最大帧）"
+            : $"{loaded.OriginalWidth} × {loaded.OriginalHeight}  ·  {loaded.Format}";
+
+        // 导出基准尺寸；用户没手动改过时，默认导出原图尺寸（100%）
+        _suppressAspect = true;
+        ExportSourceWidth = loaded.OriginalWidth;
+        ExportSourceHeight = loaded.OriginalHeight;
+        if (_exportSizeAutoSync)
+        {
+            ExportTargetWidth = loaded.OriginalWidth;
+            ExportTargetHeight = loaded.OriginalHeight;
+        }
+        _suppressAspect = false;
+        OnPropertyChanged(nameof(ExportScaleText));
+        OnPropertyChanged(nameof(ExportSummaryText));
+
+        Zoom = 1; OffsetX = 0; OffsetY = 0; Rotation = 0;
+        FlipX = false; FlipY = false; ViewScaleMode = ScaleMode.Uniform;
+        _transformDirty = false;
+
+        LoadSidecar(path);
+
+        var neigh = new List<string>();
+        if (index > 0) neigh.Add(_files[index - 1]);
+        if (index < _files.Count - 1) neigh.Add(_files[index + 1]);
+        _cache.Prefetch(neigh);
     }
 
     [RelayCommand]
-    private void Prev() { if (ImageCount > 0) ShowImage((CurrentIndex - 1 + ImageCount) % ImageCount); }
+    private async Task Prev() { if (ImageCount > 0) await ShowImageAsync((CurrentIndex - 1 + ImageCount) % ImageCount); }
 
     [RelayCommand]
-    private void Next() { if (ImageCount > 0) ShowImage((CurrentIndex + 1) % ImageCount); }
+    private async Task Next() { if (ImageCount > 0) await ShowImageAsync((CurrentIndex + 1) % ImageCount); }
 
     [RelayCommand]
-    private void GotoIndex(int index) => ShowImage(index);
+    private async Task GotoIndex(int index) => await ShowImageAsync(index);
 
     // ---------- 视图变换 ----------
     [RelayCommand]
@@ -1005,6 +1135,9 @@ public partial class MainViewModel : ObservableObject
         o.TargetBytes = (long)(ExportTargetKb * 1024);
         o.Format = ExportFormat;
         o.Filter = ExportFilterEnum;
+        o.IcoBackground = ExportIcoBackground;
+        o.IcoBgColor = ExportIcoBgColor;
+        o.IcoMaxSize = ExportIcoMaxSize;
         o.BakeAnnotations = ExportBake;
         o.CropRect = null; // MVP 暂不提供裁剪 UI
         // 烘焙当前视图变换：导出即「把旋转 / 翻转后的图另存为新文件」，关闭保存提示才有意义

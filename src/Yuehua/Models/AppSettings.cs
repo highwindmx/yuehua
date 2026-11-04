@@ -8,22 +8,25 @@ namespace Yuehua.Models;
 public class AppSettings
 {
     // ---------- 工具条样式 ----------
-    /// <summary>顶栏工具条浮于画布之上（可拖动、圆角阴影）。false = 贴顶固定。</summary>
-    public bool TopBarFloating { get; set; } = true;
     /// <summary>左侧标注工具箱浮动。</summary>
     public bool ToolboxFloating { get; set; } = true;
     /// <summary>底部缩略图条浮动。</summary>
     public bool ThumbsFloating { get; set; }
 
     // ---------- 显示行为 ----------
-    /// <summary>空闲自动淡出（鼠标静止一段时间后隐藏工具条，动一下即浮现）。false = 常驻。</summary>
-    public bool AutoFade { get; set; }
-    /// <summary>自动淡出的空闲阈值（秒）。</summary>
+    /// <summary>浮动工具条的显现方式：常驻 / 空闲淡出 / 悬停上缘（默认，最不遮挡画面）。</summary>
+    public ToolbarRevealMode RevealMode { get; set; } = ToolbarRevealMode.IdleFade;
+
+    /// <summary>
+    /// 旧版「空闲自动淡出」开关，仅为从旧设置文件迁移保留：
+    /// 读到非 null 说明是旧文件，迁移成 <see cref="RevealMode"/> 后置回 null，之后不再参与。
+    /// </summary>
+    public bool? AutoFade { get; set; }
+
+    /// <summary>空闲自动淡出的空闲阈值（秒）。</summary>
     public double FadeDelaySeconds { get; set; } = 2;
 
     // ---------- 浮动位置 ----------
-    public double? TopBarX { get; set; }
-    public double? TopBarY { get; set; }
     public double? ToolboxX { get; set; }
     public double? ToolboxY { get; set; }
     public double? ThumbsX { get; set; }

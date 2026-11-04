@@ -45,14 +45,14 @@
         </Border>
 
         <!-- 方式 -->
-        <Grid ColumnDefinitions="66,*" ColumnSpacing="6">
+        <Grid ColumnDefinitions="66,*" ColumnSpacing="6" IsVisible="{Binding IsRasterFormat}">
           <TextBlock Grid.Column="0" Classes="label" Text="方式"/>
           <ComboBox Grid.Column="1" ItemsSource="{Binding ExportModeOptions}"
                     SelectedItem="{Binding ExportModeEnum}" HorizontalAlignment="Stretch" FontSize="11.5"/>
         </Grid>
 
-        <!-- 指定像素尺寸 -->
-        <Border Classes="card" IsVisible="{Binding IsPixelExportMode}">
+        <!-- 指定像素尺寸（ICO 用下方专属「最大尺寸」，此处隐藏避免两套尺寸混淆） -->
+        <Border Classes="card" IsVisible="{Binding ShowPixelSizeControls}">
           <StackPanel Spacing="7">
             <Grid ColumnDefinitions="66,*" ColumnSpacing="6">
               <TextBlock Grid.Column="0" Classes="label" Text="宽"/>
@@ -105,7 +105,27 @@
                     SelectedItem="{Binding ExportFormat}" HorizontalAlignment="Stretch" FontSize="11.5"/>
         </Grid>
 
-        <Grid ColumnDefinitions="66,*" ColumnSpacing="6">
+        <!-- ICO 专属：最大尺寸 + 背景（仅 ico 显示） -->
+        <Grid ColumnDefinitions="66,*" ColumnSpacing="6" IsVisible="{Binding IsIcoFormat}">
+          <TextBlock Grid.Column="0" Classes="label" Text="最大尺寸"/>
+          <ComboBox Grid.Column="1" ItemsSource="{Binding IcoMaxSizeOptions}"
+                    SelectedItem="{Binding ExportIcoMaxSize}" HorizontalAlignment="Stretch" FontSize="11.5"
+                    ToolTip.Tip="ICO 是「一包多尺寸」的容器：这里选最大边长，会生成所有不超过它的标准尺寸帧"/>
+        </Grid>
+        <TextBlock Text="{Binding IcoFramesHint}" Classes="dim" FontSize="10.5" TextWrapping="Wrap"
+                   Opacity="0.85" Margin="72,0,0,0" IsVisible="{Binding IsIcoFormat}"/>
+        <Grid ColumnDefinitions="66,*" ColumnSpacing="6" IsVisible="{Binding IsIcoFormat}">
+          <TextBlock Grid.Column="0" Classes="label" Text="背景"/>
+          <ComboBox Grid.Column="1" ItemsSource="{Binding IcoBackgroundOptions}"
+                    SelectedItem="{Binding ExportIcoBackground}" HorizontalAlignment="Stretch" FontSize="11.5"/>
+        </Grid>
+        <Grid ColumnDefinitions="66,*" ColumnSpacing="6" IsVisible="{Binding IsIcoCustomBg}">
+          <TextBlock Grid.Column="0" Classes="label" Text="底色"/>
+          <TextBox Grid.Column="1" Text="{Binding ExportIcoBgColor}" FontSize="11.5" MinHeight="28"
+                   PlaceholderText="#RRGGBB"/>
+        </Grid>
+
+        <Grid ColumnDefinitions="66,*" ColumnSpacing="6" IsVisible="{Binding IsRasterFormat}">
           <TextBlock Grid.Column="0" Classes="label" Text="质量"/>
           <Grid Grid.Column="1" ColumnDefinitions="*,34" ColumnSpacing="6">
             <Slider Minimum="1" Maximum="100" Value="{Binding ExportQuality}" VerticalAlignment="Center"/>
@@ -114,7 +134,7 @@
           </Grid>
         </Grid>
 
-        <Grid ColumnDefinitions="66,*" ColumnSpacing="6">
+        <Grid ColumnDefinitions="66,*" ColumnSpacing="6" IsVisible="{Binding IsRasterFormat}">
           <TextBlock Grid.Column="0" Classes="label" Text="插值"/>
           <ComboBox Grid.Column="1" ItemsSource="{Binding InterpolationFilterOptions}"
                     SelectedItem="{Binding ExportFilterEnum}" HorizontalAlignment="Stretch" FontSize="11.5"/>

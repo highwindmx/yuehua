@@ -23,6 +23,14 @@ public static class ExportService
             ? allLayers.Where(l => l.Visible && l.BakeIntoExport).ToList()
             : new List<AnnotationLayer>();
 
+        // ICO 走专用分支：强制 ≤256 多分辨率 + 正方形透明画布（ICO 目录项宽高仅 1 字节，
+        // 0 表示 256，故任一边不得超 256；正方形是 Windows 显示约定，避免非正方形被拉伸）。
+        if (opt.Format == "ico")
+        {
+            ExportIco(loaded, layers, opt, outPath);
+            return;
+        }
+
         var fmt = MapFormat(opt.Format);
         // 文档坐标 = 显示位图的逻辑尺寸（与 ImageView / SceneRenderer 保持同一套坐标约定）
         var dispSize = loaded.Display.Size;
@@ -166,6 +174,134 @@ public static class ExportService
         return new MagickImage(ms);
     }
 
+    /// <summary>
+    /// 导出 ICO：把合成好的底图（含标注与视图变换）生成一组标准分辨率
+    /// （16/24/32/48/64/72/96/128/256）的正方形图标，写入单个 .ico。
+    /// ICO 目录项宽高仅 1 字节（0 表示 256），故任一边不得超 256。
+    /// 背景：透明 = 等比居中贴到真·透明正方形画布（保留 alpha，适合带透明通道的图）；
+    /// 白/黑/自定义 = 裁切铺满正方形、再把透明区域压平到指定底色（默认透明，不再意外显黑）。
+    /// 每帧以 PNG 嵌入、手动组装 ICO 容器：绕开 Magick ICO 集合写出对 ≤255 小帧采用「调色板 BMP + 1bit 掩码」
+    /// 而把主色误标为透明的怪象（实测会让 16×16 出现大量杂散透明）。Windows Vista+ 原生支持 PNG-ICO。
+    /// </summary>
+    private static void ExportIco(LoadedImage loaded, List<AnnotationLayer> layers, ExportOptions opt, string outPath)
+    {
+        int sw = loaded.OriginalWidth, sh = loaded.OriginalHeight;
+        if (sw <= 0 || sh <= 0) throw new InvalidOperationException("无法读取原图尺寸");
+
+        // 全分辨率合成（含标注 + 视图变换烘焙），再统一缩到工作边长，
+        // 避免逐尺寸全分辨率克隆吃内存。
+        using var baseImg = CompositeAt(loaded, layers, opt, sw, sh);
+        ApplyViewTransform(baseImg, opt);
+
+        int srcMax = Math.Max(sw, sh);
+        // ICO 尺寸由专属选项 IcoMaxSize 决定（对话框里的下拉），不再误用栅格导出的「宽/高」。
+        int maxDim = Math.Min(256, Math.Max(16, opt.IcoMaxSize));
+        int workMax = Math.Min(maxDim, srcMax); // 永不放大原图
+        double rb = Math.Min((double)workMax / sw, (double)workMax / sh);
+        baseImg.Resize((uint)Math.Max(1, (int)Math.Round(sw * rb)),
+                       (uint)Math.Max(1, (int)Math.Round(sh * rb)));
+
+        var std = new[] { 16, 24, 32, 48, 64, 72, 96, 128,256 };
+        var sizes = std.Where(s => s <= maxDim && s <= srcMax).ToList();
+        if (maxDim <= srcMax && !sizes.Contains(maxDim)) sizes.Add(maxDim);
+        if (sizes.Count == 0) sizes.Add(workMax);
+        sizes = sizes.Distinct().OrderBy(s => s).ToList();
+
+        // 透明 → 真·透明(Contain 式)；其余 → 铺满(Cover)并压平到指定底色
+        MagickColor? flat = opt.IcoBackground switch
+        {
+            IcoBackgroundMode.White => MagickColors.White,
+            IcoBackgroundMode.Black => MagickColors.Black,
+            IcoBackgroundMode.Custom => SafeColor(opt.IcoBgColor, MagickColors.White),
+            _ => null,
+        };
+        bool transparent = flat == null;
+
+        var frames = new List<(int w, int h, byte[] png)>();
+        foreach (var s in sizes)
+        {
+            MagickImage frame;
+            var piece = (MagickImage)baseImg.Clone();
+            if (transparent)
+            {
+                // 适应：等比缩放到 ≤s，居中贴到透明正方形画布
+                double r = Math.Min((double)s / piece.Width, (double)s / piece.Height);
+                int tw = Math.Max(1, (int)Math.Round(piece.Width * r));
+                int th = Math.Max(1, (int)Math.Round(piece.Height * r));
+                piece.Resize((uint)tw, (uint)th);
+                var icon = new MagickImage(MagickColors.Transparent, (uint)s, (uint)s);
+                // 必须显式 Over：Magick.NET 的 Composite(image, Gravity) 重载默认并非 Over，
+                // 直接用会把源图整个丢掉，只留下全透明画布（导出成一张空白图标）。
+                icon.Composite(piece, Gravity.Center, CompositeOperator.Over);
+                piece.Dispose(); // piece 仅作合成源
+                frame = icon;
+            }
+            else
+            {
+                // 铺满：按较大边放大到 ≥s，再居中裁切正中 s×s，然后压平到指定底色
+                // （不再用 Alpha(Off) 把透明区域变成黑，而是显式填白/黑/自定义色）
+                double scale = Math.Max((double)s / piece.Width, (double)s / piece.Height);
+                piece.Resize((uint)Math.Max(1, (int)Math.Round(piece.Width * scale)),
+                             (uint)Math.Max(1, (int)Math.Round(piece.Height * scale)));
+                piece.Crop((uint)s, (uint)s, Gravity.Center);
+                var canvas = new MagickImage(flat!, (uint)s, (uint)s);
+                // 同上：显式 Over，否则只剩纯底色、源图丢失
+                canvas.Composite(piece, Gravity.Center, CompositeOperator.Over);
+                piece.Dispose();
+                frame = canvas;
+            }
+
+            using var ms = new MemoryStream();
+            // 强制 RGBA 8 位 PNG：Magick 默认会按「最小体积」把少色图量化成 1 位黑白调色板，
+            // 导致彩色图标在某些查看器里显黑 / 打不开。color-type=6 直接指定真彩+alpha。
+            frame.Settings.SetDefine("png:color-type", "6");
+            frame.Depth = 8;
+            frame.Write(ms, MagickFormat.Png); // 各帧以 PNG 嵌入（见方法注释）
+            frames.Add((s, s, ms.ToArray()));
+            frame.Dispose(); // frames 仅存字节，源图释放
+        }
+
+        WriteIcoFromPngFrames(frames, outPath);
+    }
+
+    /// <summary>把十六进制颜色（#RGB / #RRGGBB）解析为 MagickColor；非法则回退 fallback。</summary>
+    private static MagickColor SafeColor(string? hex, MagickColor fallback)
+    {
+        if (string.IsNullOrWhiteSpace(hex)) return fallback;
+        try { return new MagickColor(hex!); }
+        catch { return fallback; }
+    }
+
+    /// <summary>
+    /// 把一组 PNG 帧字节手动组装成 ICO 文件（每帧以 PNG 形式嵌入；Windows Vista+ 支持）。
+    /// 不依赖 Magick 的 ICO 集合写出，从而避开小帧被编码成带透明掩码的调色板 BMP 的怪象。
+    /// </summary>
+    private static void WriteIcoFromPngFrames(List<(int w, int h, byte[] png)> frames, string outPath)
+    {
+        if (!outPath.EndsWith(".ico", StringComparison.OrdinalIgnoreCase))
+            outPath += ".ico";
+        using var ms = new MemoryStream();
+        using var bw = new BinaryWriter(ms);
+        bw.Write((ushort)0);                 // reserved
+        bw.Write((ushort)1);                 // image type = icon
+        bw.Write((ushort)frames.Count);
+        int offset = 6 + 16 * frames.Count;
+        foreach (var f in frames)
+        {
+            bw.Write((byte)(f.w >= 256 ? 0 : (byte)f.w));   // 0 表示 256
+            bw.Write((byte)(f.h >= 256 ? 0 : (byte)f.h));
+            bw.Write((byte)0);                // colorCount
+            bw.Write((byte)0);                // reserved
+            bw.Write((ushort)1);              // planes
+            bw.Write((ushort)32);             // bitCount（PNG 含 alpha）
+            bw.Write((uint)f.png.Length);     // bytesInRes
+            bw.Write((uint)offset);           // imageOffset
+            offset += f.png.Length;
+        }
+        foreach (var f in frames) bw.Write(f.png);
+        File.WriteAllBytes(outPath, ms.ToArray());
+    }
+
     private static long Measure(MagickImage mag, MagickFormat fmt)
     {
         using var ms = new MemoryStream();
@@ -181,6 +317,7 @@ public static class ExportService
         "webp" => MagickFormat.WebP,
         "bmp" => MagickFormat.Bmp,
         "tiff" or "tif" => MagickFormat.Tiff,
+        "ico" => MagickFormat.Icon,
         _ => MagickFormat.Jpeg,
     };
 

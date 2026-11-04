@@ -37,7 +37,6 @@
         <Border Classes="card">
           <StackPanel Spacing="7">
             <TextBlock Text="工具条样式" FontWeight="SemiBold" FontSize="12"/>
-            <CheckBox Content="顶栏工具条浮动" IsChecked="{Binding TopBarFloating}" FontSize="11.5"/>
             <CheckBox Content="标注工具箱浮动" IsChecked="{Binding ToolboxFloating}" FontSize="11.5"/>
             <CheckBox Content="缩略图条浮动" IsChecked="{Binding ThumbsFloating}" FontSize="11.5"/>
             <TextBlock Text="浮动：圆角 + 阴影浮在画面之上，可用条上的手柄拖动位置；取消勾选则贴回边缘固定。"
@@ -51,7 +50,7 @@
             <TextBlock Text="显示行为" FontWeight="SemiBold" FontSize="12"/>
             <Grid ColumnDefinitions="62,*" ColumnSpacing="6">
               <TextBlock Grid.Column="0" Classes="label" Text="方式"/>
-              <ComboBox Grid.Column="1" SelectedIndex="{Binding FadeModeIndex}"
+              <ComboBox Grid.Column="1" SelectedIndex="{Binding RevealModeIndex}"
                         HorizontalAlignment="Stretch" FontSize="11.5">
                 <ComboBoxItem Content="常驻悬浮"/>
                 <ComboBoxItem Content="空闲自动淡出"/>
@@ -61,18 +60,18 @@
               <TextBlock Grid.Column="0" Classes="label" Text="延时"/>
               <Grid Grid.Column="1" ColumnDefinitions="*,40" ColumnSpacing="6">
                 <Slider Minimum="0.5" Maximum="10" Value="{Binding FadeDelaySeconds}"
-                        IsEnabled="{Binding AutoFade}" VerticalAlignment="Center"/>
+                        IsEnabled="{Binding IsIdleFade}" VerticalAlignment="Center"/>
                 <TextBlock Grid.Column="1" Text="{Binding FadeDelaySeconds, StringFormat={}{0:0.0}s}"
                            Classes="dim" VerticalAlignment="Center"/>
               </Grid>
             </Grid>
-            <TextBlock Text="自动淡出只对浮动工具条生效：鼠标静止到延时后淡出，一动即恢复；鼠标停在工具条上不会淡出。"
+            <TextBlock Text="空闲自动淡出（默认）：鼠标静止到延时后浮动卡片淡出，一动即恢复，画面尽可能让给图片；常驻：浮动卡片始终显示。两种方式只作用于仍可浮动的标注工具箱与缩略图条（顶栏已固定并入标题栏，不参与隐藏）。"
                        Classes="dim" FontSize="10.5" TextWrapping="Wrap" Opacity="0.85"/>
           </StackPanel>
         </Border>
 
         <Button Height="30" HorizontalAlignment="Stretch" Content="复位工具条位置"
-                Click="OnResetPositions" ToolTip.Tip="浮动位置恢复默认（顶栏居中贴顶 / 工具箱左中 / 缩略图贴底）"/>
+                Click="OnResetPositions" ToolTip.Tip="浮动位置恢复默认（工具箱左中 / 缩略图贴底）"/>
       </StackPanel>
     </ScrollViewer>
 

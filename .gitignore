@@ -18,6 +18,9 @@ tools/*/obj/
 # 项目私有记忆（含本地路径等，不入库）
 .workbuddy/
 
+# 本地隔离区（临时探针 / 待复核文件，不入库）
+archive/
+
 # OS / 编辑器
 .DS_Store
 Thumbs.db

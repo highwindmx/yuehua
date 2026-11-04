@@ -6,6 +6,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <LangVersion>latest</LangVersion>
+    <!-- 版本号与 git tag 保持一致 (v0.0.2) -->
+    <Version>0.0.2</Version>
 
     <!-- NativeAOT 设置（仅 publish 时生效；dotnet build 不受影响） -->
     <PublishAot>true</PublishAot>

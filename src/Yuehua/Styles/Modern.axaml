@@ -16,6 +16,10 @@
           <SolidColorBrush x:Key="YhDim" Color="#8A8A92"/>
           <SolidColorBrush x:Key="YhIcon" Color="#24242A"/>
           <SolidColorBrush x:Key="YhCanvas" Color="#E9E9ED"/>
+          <!-- 玻璃层：叠在图片之上，既要看得清控件、又不能压住画面（alpha 即透明度） -->
+          <SolidColorBrush x:Key="YhGlassBar" Color="#C4F7F7F9"/>
+          <SolidColorBrush x:Key="YhGlassPanel" Color="#C9FFFFFF"/>
+          <SolidColorBrush x:Key="YhGlassEdge" Color="#33000000"/>
         </ResourceDictionary>
         <!-- 深色 -->
         <ResourceDictionary x:Key="Dark">
@@ -28,6 +32,9 @@
           <SolidColorBrush x:Key="YhDim" Color="#8C8C96"/>
           <SolidColorBrush x:Key="YhIcon" Color="#ECECF1"/>
           <SolidColorBrush x:Key="YhCanvas" Color="#0E0E11"/>
+          <SolidColorBrush x:Key="YhGlassBar" Color="#C218181B"/>
+          <SolidColorBrush x:Key="YhGlassPanel" Color="#C71D1D21"/>
+          <SolidColorBrush x:Key="YhGlassEdge" Color="#3DFFFFFF"/>
         </ResourceDictionary>
       </ResourceDictionary.ThemeDictionaries>
     </ResourceDictionary>
@@ -142,7 +149,8 @@
   <!-- ============ 窗口控制按钮（Win11 风格）============ -->
   <Style Selector="Button.win">
     <Setter Property="Width" Value="45"/>
-    <Setter Property="Height" Value="40"/>
+    <!-- 主窗口标题栏行高 34；按钮必须等高，否则会溢出并破坏垂直居中 -->
+    <Setter Property="Height" Value="34"/>
     <Setter Property="Padding" Value="0"/>
     <Setter Property="CornerRadius" Value="0"/>
     <Setter Property="Background" Value="Transparent"/>
@@ -272,9 +280,10 @@
   </Style>
 
   <!-- ============ 浮动工具条 ============ -->
+  <!-- 浮动卡片：半透明玻璃底，图片从底下透出来 -->
   <Style Selector="Border.floatpanel">
-    <Setter Property="Background" Value="{DynamicResource YhChrome}"/>
-    <Setter Property="BorderBrush" Value="{DynamicResource YhBorder}"/>
+    <Setter Property="Background" Value="{DynamicResource YhGlassPanel}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource YhGlassEdge}"/>
   </Style>
   <!-- 拖动手柄：竖排三点（顶栏用）/ 横排三点（工具箱、缩略图条用） -->
   <Style Selector="Border.grip">

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Avalonia;
@@ -41,7 +42,7 @@ public partial class MainWindow : Window
     private double _cardX, _cardY;
     private bool _dragMoved;
 
-    // 空闲自动淡出
+    // 空闲自动淡出（只作用于可浮动的标注工具箱 / 缩略图条；顶栏已并入标题栏固定显示）
     private readonly DispatcherTimer _idleTimer = new() { Interval = TimeSpan.FromMilliseconds(220) };
     private DateTime _lastInput = DateTime.Now;
 
@@ -51,8 +52,8 @@ public partial class MainWindow : Window
         _vm = new MainViewModel();
         DataContext = _vm;
 
-        // 默认窗口大小：取主屏工作区的黄金分割比例（0.618）并居中；侧边栏 / 缩略图条默认可见、不限制。
-        var golden = 0.6180339887498949;
+        // 默认窗口大小：取主屏工作区的较小比例并居中，避免一打开就占满屏幕。
+        var golden = 0.56;
         var screen = Screens.Primary;
         if (screen != null)
         {
@@ -65,9 +66,7 @@ public partial class MainWindow : Window
         // 关闭前：若有未保存的视图变换（旋转 / 翻转），弹「是否保存」提示
         Closing += OnClosing;
 
-        // 窗口允许缩得很小（MinWidth=340）：顶栏卡片宽度始终钳制在窗口内，工具条可横向滚动。
-        // （ThumbsCard 的 MaxWidth 走 VM 绑定，停靠时为 Stretch 布局天然不溢出，不在代码里覆盖）
-        SizeChanged += (_, e) => TopBarCard.MaxWidth = Math.Max(120, e.NewSize.Width - 12);
+        // 标题栏内的工具条（并入顶栏）窄屏下可横向滚动，无需额外钳制。
 
         // 图标（任务栏 / 系统标题栏 / 左上角品牌位）：从 Avalonia 资源加载，AOT 下同样可用。
         // 用 try 包裹：资源缺失只影响观感，不应导致窗口构造失败。
@@ -86,10 +85,14 @@ public partial class MainWindow : Window
         KeyBindings.Add(new KeyBinding { Gesture = KeyGesture.Parse("Ctrl+S"), Command = new AsyncRelayCommand(ExportAsync) });
         KeyBindings.Add(new KeyBinding { Gesture = KeyGesture.Parse("Ctrl+OemComma"), Command = new RelayCommand(OpenSettings) });
 
-        // 空闲自动淡出：任何鼠标 / 键盘输入都算「活跃」
-        this.PointerMoved += (_, _) => _lastInput = DateTime.Now;
-        this.PointerWheelChanged += (_, _) => _lastInput = DateTime.Now;
-        this.KeyDown += (_, _) => _lastInput = DateTime.Now;
+        // 输入追踪：任何鼠标 / 键盘输入都算「活跃」，用于驱动浮动卡片的空闲淡出。
+        // 用隧道 + handledEventsToo，保证画布吃掉事件（e.Handled=true）时也能收到。
+        this.AddHandler(PointerMovedEvent, (_, _) => _lastInput = DateTime.Now,
+            RoutingStrategies.Tunnel, handledEventsToo: true);
+        this.AddHandler(PointerWheelChangedEvent, (_, _) => _lastInput = DateTime.Now,
+            RoutingStrategies.Tunnel, handledEventsToo: true);
+        this.AddHandler(KeyDownEvent, (_, _) => _lastInput = DateTime.Now,
+            RoutingStrategies.Tunnel, handledEventsToo: true);
         _idleTimer.Tick += OnIdleTick;
         _idleTimer.Start();
         Closed += (_, _) => _idleTimer.Stop();
@@ -106,6 +109,11 @@ public partial class MainWindow : Window
                 Dispatcher.UIThread.Post(SyncLayerSelection, DispatcherPriority.Background);
         };
         SyncLayerSelection();
+
+        // 主动打开文件失败时弹出轻量错误提示（导航翻页失败只更新状态栏，不弹窗）
+        _vm.RequestOpenError += (title, detail) =>
+            Dispatcher.UIThread.Post(() =>
+                new MessageDialog("无法打开文件", title, detail).ShowDialog(this));
     }
 
     private bool _syncingLayerSelection;
@@ -129,18 +137,28 @@ public partial class MainWindow : Window
 
     private void OpenSettings() => new SettingsDialog(_vm).ShowDialog(this);
 
-    /// <summary>空闲计时：达到阈值且鼠标不在工具条上时淡出（只影响浮动卡片）。</summary>
+    /// <summary>
+    /// 工具条显现方式的驱动：常驻 / 空闲淡出 / 悬停上缘。
+    /// 只影响浮动卡片；标签固定（贴边）时卡片本身不透明、不参与隐藏。
+    /// </summary>
     private void OnIdleTick(object? sender, EventArgs e)
     {
-        if (!_vm.AutoFade)
+        switch (_vm.RevealMode)
         {
-            if (_vm.IsFaded) _vm.SetFaded(false);
-            return;
-        }
+            case ToolbarRevealMode.Always:
+                if (_vm.IsFaded) _vm.SetFaded(false);
+                break;
 
-        var overCard = TopBarCard.IsPointerOver || ToolBoxCard.IsPointerOver || ThumbsCard.IsPointerOver;
-        var idle = (DateTime.Now - _lastInput).TotalSeconds;
-        _vm.SetFaded(!overCard && idle >= Math.Max(0.5, _vm.FadeDelaySeconds));
+            case ToolbarRevealMode.IdleFade:
+            case ToolbarRevealMode.EdgeHover:
+            {
+                // 浮现/隐藏只作用于仍可浮动的标注工具箱与缩略图条；顶栏已并入标题栏固定显示
+                var overCard = ToolBoxCard.IsPointerOver || ThumbsCard.IsPointerOver;
+                var idle = (DateTime.Now - _lastInput).TotalSeconds;
+                _vm.SetFaded(!overCard && idle >= Math.Max(0.5, _vm.FadeDelaySeconds));
+                break;
+            }
+        }
     }
 
     // ---------- 浮动工具条拖动 ----------
@@ -149,7 +167,6 @@ public partial class MainWindow : Window
         if (sender is not Border b || b.Tag is not string which) return;
         _dragCard = which switch
         {
-            "top" => TopBarCard,
             "tools" => ToolBoxCard,
             "thumbs" => ThumbsCard,
             _ => null,
@@ -200,7 +217,7 @@ public partial class MainWindow : Window
             AllowMultiple = false,
             FileTypeFilter = new[] { new FilePickerFileType("图片")
             {
-                Patterns = new[] { "*.jpg","*.jpeg","*.png","*.webp","*.bmp","*.gif","*.tif","*.tiff",
+                Patterns = new[] { "*.jpg","*.jpeg","*.png","*.webp","*.bmp","*.gif","*.tif","*.tiff","*.ico",
                                    "*.heic","*.heif","*.avif","*.cr2","*.nef","*.arw","*.dng","*.raw","*.psd" }
             } }
         });
@@ -208,7 +225,7 @@ public partial class MainWindow : Window
         if (f != null)
         {
             var path = f.Path.LocalPath;
-            _vm.LoadFolder(Path.GetDirectoryName(path)!, path);
+            _vm.LoadFolder(Path.GetDirectoryName(path)!, path, directOpen: true);
         }
     }
 
@@ -244,6 +261,9 @@ public partial class MainWindow : Window
 
     private void OnCloseWindow(object? sender, RoutedEventArgs e) => Close();
 
+    /// <summary>关闭侧边栏（可由底部栏「侧边面板」开关重新唤出）。</summary>
+    private void OnClosePanel(object? sender, RoutedEventArgs e) => _vm.PanelVisible = false;
+
     // ---------- 关闭前保存提示（旋转 / 翻转未保存时）----------
     private bool _allowClose;
 
@@ -271,10 +291,10 @@ public partial class MainWindow : Window
     }
 
     // ---------- 缩略图条选中：切换当前图片 ----------
-    private void OnThumbSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    private async void OnThumbSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
         if (sender is ListBox lb && lb.SelectedIndex >= 0)
-            _vm.ShowImage(lb.SelectedIndex);
+            await _vm.ShowImageAsync(lb.SelectedIndex);
     }
 
     // ---------- 预设色 ----------
@@ -336,18 +356,27 @@ public partial class MainWindow : Window
         var items = e.DataTransfer.TryGetFiles();
         if (items == null) return;
 
-        // 拖入文件夹 → 直接加载整个目录
-        var dirs = items.OfType<IStorageFolder>().Select(x => x.Path.LocalPath)
-            .Where(Directory.Exists).ToList();
-        if (dirs.Count > 0)
+        // 文件夹优先于文件；多张图片一起拖入也走同一条路
+        var paths = items.Select(x => x.Path.LocalPath).ToList();
+        if (paths.Count > 0)
         {
-            _vm.LoadFolder(dirs[0]);
-            return;
+            _vm.OpenPaths(paths);
         }
+    }
 
-        var paths = items.OfType<IStorageFile>().Select(x => x.Path.LocalPath)
-            .Where(File.Exists).ToList();
-        if (paths.Count > 0) _vm.LoadFiles(paths);
+    /// <summary>
+    /// 从外部打开一组路径：桌面快捷方式被拖放 / 再次双击 / 命令行参数（第二实例转发）都走这里。
+    /// 若窗口最小化或不在前台，先还原激活，让用户立刻看到刚打开的图片。
+    /// </summary>
+    public void OpenPathsFromOutside(IEnumerable<string> paths)
+    {
+        var list = paths.ToList();
+        if (list.Count == 0) return;
+
+        if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
+        Show();
+        Activate();
+        _vm.OpenPaths(list);
     }
 
     // ---------- 画布指针交互：创建/平移标注 ----------

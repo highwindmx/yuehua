@@ -57,6 +57,8 @@
   <StreamGeometry x:Key="ic_sun">M12 7.5 A4.5 4.5 0 1 0 12 16.5 A4.5 4.5 0 1 0 12 7.5 Z M12 2 L12 4 M12 20 L12 22 M2 12 L4 12 M20 12 L22 12 M4.9 4.9 L6.3 6.3 M17.7 17.7 L19.1 19.1 M19.1 4.9 L17.7 6.3 M6.3 17.7 L4.9 19.1</StreamGeometry>
   <StreamGeometry x:Key="ic_panel">M3.5 5 L20.5 5 L20.5 19 L3.5 19 Z M15 5 L15 19</StreamGeometry>
   <StreamGeometry x:Key="ic_thumbs">M3.5 5 L20.5 5 L20.5 19 L3.5 19 Z M3.5 15 L20.5 15</StreamGeometry>
+  <!-- 底部工具条：底部圆角长条（区别于侧栏 / 缩略图条） -->
+  <StreamGeometry x:Key="ic_bottombar">M4 15.5 L20 15.5 L20 19.4 Q20 20 19.4 20 L4.6 20 Q4 20 4 19.4 Z M7.5 17.8 L7.5 17.8 M12 17.8 L12 17.8 M16.5 17.8 L16.5 17.8</StreamGeometry>
 
   <!-- ============ 标注工具 ============ -->
   <StreamGeometry x:Key="ic_cursor">M6 3 L6 17.6 L9.4 14.3 L11.9 19.9 L14.3 18.9 L11.9 13.7 L16.6 13.5 Z</StreamGeometry>

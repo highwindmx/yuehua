@@ -15,18 +15,33 @@ public class ImageCache
 
     public LoadedImage GetOrLoad(string path)
     {
+        var stamp = ImageLoader.StampOf(path);
         lock (_lock)
         {
             if (_dict.TryGetValue(path, out var v))
             {
-                Touch(path);
-                return v;
+                if (v.FileStamp == stamp) { Touch(path); return v; }
+
+                // 同名文件被覆盖重写（例如「另存为」导出到当前路径、或外部工具替换了图片）：
+                // 旧解码结果必须失效，否则主界面会一直显示旧内容，而缩略图条因直读磁盘显示新内容。
+                // 这里不主动 Dispose 旧对象：_current 可能仍引用它的 Display，提前释放会让画布崩溃，
+                // 交给 GC / 终结器回收即可。
+                _dict.Remove(path);
+                var node = _lru.Find(path);
+                if (node != null) _lru.Remove(node);
             }
         }
 
         var loaded = ImageLoader.Load(path);
+        loaded.FileStamp = stamp;
         lock (_lock)
         {
+            // 并发预取可能已写入同路径，去掉重复 LRU 节点
+            if (_dict.ContainsKey(path))
+            {
+                var node = _lru.Find(path);
+                if (node != null) _lru.Remove(node);
+            }
             _dict[path] = loaded;
             _lru.AddFirst(path);
             while (_dict.Count > _maxCount)
@@ -44,10 +59,12 @@ public class ImageCache
         return loaded;
     }
 
+    /// <summary>尝试取缓存；文件已变化时视为未命中，避免调用方拿到过期位图。</summary>
     public LoadedImage? TryGet(string path)
     {
+        var stamp = ImageLoader.StampOf(path);
         lock (_lock)
-            return _dict.TryGetValue(path, out var v) ? v : null;
+            return _dict.TryGetValue(path, out var v) && v.FileStamp == stamp ? v : null;
     }
 
     /// <summary>后台预载若干路径（通常是当前图的前后邻图），提升翻页流畅度。</summary>

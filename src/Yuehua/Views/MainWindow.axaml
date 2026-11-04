@@ -1,4 +1,4 @@
-<Window xmlns="https://github.com/avaloniaui"
+﻿<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:Yuehua.ViewModels"
         xmlns:models="clr-namespace:Yuehua.Models"
@@ -6,7 +6,7 @@
         x:Class="Yuehua.Views.MainWindow"
         x:DataType="vm:MainViewModel"
         Title="阅画 Yuehua"
-        Width="1240" Height="800"
+        Width="1100" Height="720"
         MinWidth="340" MinHeight="240"
         FontSize="12.5"
         Background="{DynamicResource YhCanvas}"
@@ -30,13 +30,31 @@
     <KeyBinding Gesture="Escape" Command="{Binding EscapeCommand}"/>
   </Window.KeyBindings>
 
-  <Grid RowDefinitions="34,*,26" ColumnDefinitions="*,Auto">
+  <Grid RowDefinitions="34,*,Auto" ColumnDefinitions="*,Auto">
 
-    <!-- ==================== 标题栏（品牌 + 窗口控制）==================== -->
-    <Border Grid.Row="0" Grid.ColumnSpan="2"
-            Background="{DynamicResource YhChrome}"
-            BorderThickness="0,0,0,1" BorderBrush="{DynamicResource YhBorder}"
-            PointerPressed="OnTitleBarPointerPressed">
+    <!-- ==================== 画布（向上延伸到标题栏之下）====================
+         图片从半透明标题栏 / 悬浮工具条里透出来，顶部不再被 34px 实心条切掉。 -->
+    <views:ImageView Grid.Row="0" Grid.RowSpan="2" Grid.Column="0" x:Name="ImageView" ClipToBounds="True"
+                     Margin="{Binding CanvasMargin}"
+                     Source="{Binding CurrentDisplay}"
+                     Layers="{Binding Layers}"
+                     InProgress="{Binding InProgress}"
+                     Zoom="{Binding Zoom}" OffsetX="{Binding OffsetX}" OffsetY="{Binding OffsetY}"
+                     Rotation="{Binding Rotation}" FlipX="{Binding FlipX}" FlipY="{Binding FlipY}"
+                     ViewScaleMode="{Binding ViewScaleMode}"
+                     ActualScale="{Binding DisplayScale, Mode=OneWayToSource}"
+                     Background="{DynamicResource YhCanvas}"
+                     PointerPressed="OnCanvasPointerPressed"
+                     PointerMoved="OnCanvasPointerMoved"
+                     PointerReleased="OnCanvasPointerReleased"
+                     PointerWheelChanged="OnCanvasPointerWheel"
+                     DoubleTapped="OnCanvasDoubleTapped" />
+
+    <!-- ==================== 标题栏（品牌 + 窗口控制，半透明玻璃）==================== -->
+  <Border Grid.Row="0" Grid.ColumnSpan="2" ZIndex="20"
+        Background="{DynamicResource YhGlassBar}"
+        BorderThickness="0,0,0,1" BorderBrush="{DynamicResource YhGlassEdge}"
+        PointerPressed="OnTitleBarPointerPressed">
       <Grid ColumnDefinitions="Auto,*,Auto">
         <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center"
                     Margin="10,0,4,0" Spacing="7">
@@ -46,7 +64,46 @@
                      MaxWidth="420" TextTrimming="CharacterEllipsis"/>
         </StackPanel>
 
-        <StackPanel Grid.Column="2" Orientation="Horizontal">
+        <!-- 顶部工具条（已并入标题栏：文件 / 导航 / 标注 / 视图开关）。专注模式下隐藏，仅留品牌与窗口控制 -->
+        <ScrollViewer Grid.Column="1" IsVisible="{Binding UiVisible}"
+                      HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+          <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="1" Margin="6,0">
+            <Button Classes="tb" ToolTip.Tip="打开图片" Click="OnOpenFile">
+              <Path Classes="icon" Data="{StaticResource ic_open}"/>
+            </Button>
+            <Button Classes="tb" ToolTip.Tip="打开文件夹" Click="OnOpenFolder">
+              <Path Classes="icon" Data="{StaticResource ic_folder}"/>
+            </Button>
+            <Button Classes="tb" ToolTip.Tip="另存为…  Ctrl+S" Click="OnExportClick">
+              <Path Classes="icon" Data="{StaticResource ic_export}"/>
+            </Button>
+            <Rectangle Classes="sep"/>
+            <Button Classes="tb" Command="{Binding PrevCommand}" IsEnabled="{Binding HasMultiple}" ToolTip.Tip="上一张  ←">
+              <Path Classes="icon" Data="{StaticResource ic_prev}"/>
+            </Button>
+            <Button Classes="tb" Command="{Binding NextCommand}" IsEnabled="{Binding HasMultiple}" ToolTip.Tip="下一张  →">
+              <Path Classes="icon" Data="{StaticResource ic_next}"/>
+            </Button>
+            <Rectangle Classes="sep"/>
+            <ToggleButton Classes="tb" IsChecked="{Binding AnnotateMode}" ToolTip.Tip="标注模式  Ctrl+E">
+              <Path Classes="icon" Data="{StaticResource ic_annotate}"/>
+            </ToggleButton>
+            <Button Classes="tb" Command="{Binding ToggleThemeCommand}" ToolTip.Tip="切换深浅色">
+              <Panel>
+                <Path Classes="icon" Data="{StaticResource ic_moon}" IsVisible="{Binding IsDark}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                <Path Classes="icon" Data="{StaticResource ic_sun}" IsVisible="{Binding !IsDark}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+              </Panel>
+            </Button>
+            <Button Classes="tb" ToolTip.Tip="设置  Ctrl+," Click="OnSettingsClick">
+              <Path Classes="icon" Data="{StaticResource ic_settings}"/>
+            </Button>
+          </StackPanel>
+        </ScrollViewer>
+
+        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+          <Button Classes="win" ToolTip.Tip="退出专注模式  F11" Command="{Binding ToggleUiCommand}">
+            <Path Classes="icon win" Data="{StaticResource ic_focus}"/>
+          </Button>
           <Button Classes="win" ToolTip.Tip="最小化" Click="OnMinimize">
             <Path Classes="icon win" Data="{StaticResource ic_minimize}"
                   Fill="{DynamicResource YhIcon}" Stroke="Transparent"/>
@@ -61,139 +118,8 @@
       </Grid>
     </Border>
 
-    <!-- ==================== 画布 + 浮动工具条 ==================== -->
-    <Grid Grid.Row="1" Grid.Column="0">
-      <views:ImageView x:Name="ImageView" ClipToBounds="True"
-                       Margin="{Binding CanvasMargin}"
-                       Source="{Binding CurrentDisplay}"
-                       Layers="{Binding Layers}"
-                       InProgress="{Binding InProgress}"
-                       Zoom="{Binding Zoom}" OffsetX="{Binding OffsetX}" OffsetY="{Binding OffsetY}"
-                       Rotation="{Binding Rotation}" FlipX="{Binding FlipX}" FlipY="{Binding FlipY}"
-                       ViewScaleMode="{Binding ViewScaleMode}"
-                       ActualScale="{Binding DisplayScale, Mode=OneWayToSource}"
-                       Background="{DynamicResource YhCanvas}"
-                       PointerPressed="OnCanvasPointerPressed"
-                       PointerMoved="OnCanvasPointerMoved"
-                       PointerReleased="OnCanvasPointerReleased"
-                       PointerWheelChanged="OnCanvasPointerWheel"
-                       DoubleTapped="OnCanvasDoubleTapped" />
-
-      <!-- 悬浮层：容器本身无背景（不拦截画布指针事件），只有卡片参与命中测试 -->
-      <Grid x:Name="Overlay" Background="{x:Null}">
-
-        <!-- ======顶栏工具条 ====== -->
-        <Border x:Name="TopBarCard" Classes="floatpanel"
-                IsVisible="{Binding TopBarVisible}"
-                CornerRadius="{Binding TopBarRadius}"
-                BorderBrush="{DynamicResource YhBorder}"
-                BoxShadow="{Binding TopBarShadow}"
-                BorderThickness="{Binding TopBarBorderThickness}"
-                Opacity="{Binding TopBarOpacity}"
-                IsHitTestVisible="{Binding TopBarHitTest}"
-                HorizontalAlignment="{Binding TopBarHAlign}"
-                VerticalAlignment="{Binding TopBarVAlign}"
-                Margin="{Binding TopBarMargin}"
-                Padding="4,3">
-          <Border.Transitions>
-            <Transitions>
-              <DoubleTransition Property="Opacity" Duration="0:0:0.18"/>
-            </Transitions>
-          </Border.Transitions>
-          <ScrollViewer HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled">
-            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="1">
-
-            <Border Classes="grip grip-v" Tag="top" IsVisible="{Binding TopBarFloating}"
-                    PointerPressed="OnGripPressed" PointerMoved="OnGripMoved" PointerReleased="OnGripReleased">
-              <StackPanel Orientation="Vertical" Spacing="2" HorizontalAlignment="Center" VerticalAlignment="Center">
-                <Ellipse Classes="gripdot"/><Ellipse Classes="gripdot"/><Ellipse Classes="gripdot"/>
-              </StackPanel>
-            </Border>
-
-            <Button Classes="tb" ToolTip.Tip="打开图片" Click="OnOpenFile">
-              <Path Classes="icon" Data="{StaticResource ic_open}"/>
-            </Button>
-            <Button Classes="tb" ToolTip.Tip="打开文件夹" Click="OnOpenFolder">
-              <Path Classes="icon" Data="{StaticResource ic_folder}"/>
-            </Button>
-
-            <Rectangle Classes="sep"/>
-
-            <Button Classes="tb" Command="{Binding PrevCommand}" IsEnabled="{Binding HasMultiple}" ToolTip.Tip="上一张  ←">
-              <Path Classes="icon" Data="{StaticResource ic_prev}"/>
-            </Button>
-            <TextBlock Text="{Binding PositionText}" Classes="dim" VerticalAlignment="Center"
-                       MinWidth="54" TextAlignment="Center" FontSize="11.5"/>
-            <Button Classes="tb" Command="{Binding NextCommand}" IsEnabled="{Binding HasMultiple}" ToolTip.Tip="下一张  →">
-              <Path Classes="icon" Data="{StaticResource ic_next}"/>
-            </Button>
-
-            <Rectangle Classes="sep"/>
-
-            <Button Classes="tb" Command="{Binding ZoomOutCommand}" ToolTip.Tip="缩小  -">
-              <Path Classes="icon" Data="{StaticResource ic_zoom_out}"/>
-            </Button>
-            <Button Classes="tb-auto" Command="{Binding FitCommand}" Content="{Binding ZoomPercentText}" ToolTip.Tip="重置视图"/>
-            <Button Classes="tb" Command="{Binding ZoomInCommand}" ToolTip.Tip="放大  +">
-              <Path Classes="icon" Data="{StaticResource ic_zoom_in}"/>
-            </Button>
-            <Button Classes="tb" Command="{Binding FitCommand}" ToolTip.Tip="适应窗口">
-              <Path Classes="icon" Data="{StaticResource ic_fit}"/>
-            </Button>
-            <Button Classes="tb-auto" Command="{Binding ActualSizeCommand}" Content="1:1" ToolTip.Tip="原始像素"/>
-
-            <Rectangle Classes="sep"/>
-
-            <Button Classes="tb" Command="{Binding RotateLeftCommand}" ToolTip.Tip="逆时针 90°">
-              <Path Classes="icon" Data="{StaticResource ic_rot_l}"/>
-            </Button>
-            <Button Classes="tb" Command="{Binding RotateRightCommand}" ToolTip.Tip="顺时针 90°">
-              <Path Classes="icon" Data="{StaticResource ic_rot_r}"/>
-            </Button>
-            <Button Classes="tb" Command="{Binding FlipHCommand}" ToolTip.Tip="水平翻转">
-              <Path Classes="icon" Data="{StaticResource ic_flip_h}"/>
-            </Button>
-            <Button Classes="tb" Command="{Binding FlipVCommand}" ToolTip.Tip="垂直翻转">
-              <Path Classes="icon" Data="{StaticResource ic_flip_v}"/>
-            </Button>
-
-            <Rectangle Classes="sep"/>
-
-            <ToggleButton Classes="tb" IsChecked="{Binding AnnotateMode}" ToolTip.Tip="标注模式  Ctrl+E">
-              <Path Classes="icon" Data="{StaticResource ic_annotate}"/>
-            </ToggleButton>
-
-            <Rectangle Classes="sep"/>
-
-            <Button Classes="tb" Command="{Binding ToggleUiCommand}" ToolTip.Tip="专注模式（隐藏面板）">
-              <Path Classes="icon" Data="{StaticResource ic_focus}"/>
-            </Button>
-            <Button Classes="tb" Command="{Binding ToggleThemeCommand}" ToolTip.Tip="切换深浅色">
-              <Panel>
-                <Path Classes="icon" Data="{StaticResource ic_moon}" IsVisible="{Binding IsDark}"
-                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                <Path Classes="icon" Data="{StaticResource ic_sun}" IsVisible="{Binding !IsDark}"
-                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
-              </Panel>
-            </Button>
-            <Button Classes="tb" ToolTip.Tip="另存为…  Ctrl+S" Click="OnExportClick">
-              <Path Classes="icon" Data="{StaticResource ic_export}"/>
-            </Button>
-            <Button Classes="tb" ToolTip.Tip="设置  Ctrl+," Click="OnSettingsClick">
-              <Path Classes="icon" Data="{StaticResource ic_settings}"/>
-            </Button>
-
-            <Rectangle Classes="sep"/>
-
-            <ToggleButton Classes="tb" IsChecked="{Binding PanelVisible}" ToolTip.Tip="侧边面板">
-              <Path Classes="icon" Data="{StaticResource ic_panel}"/>
-            </ToggleButton>
-            <ToggleButton Classes="tb" IsChecked="{Binding ThumbsVisible}" ToolTip.Tip="缩略图条">
-              <Path Classes="icon" Data="{StaticResource ic_thumbs}"/>
-            </ToggleButton>
-          </StackPanel>
-          </ScrollViewer>
-        </Border>
+    <!-- ==================== 浮动工具条层（叠在画布之上）==================== -->
+    <Grid Grid.Row="1" Grid.Column="0" x:Name="Overlay" Background="{x:Null}">
 
         <!-- ====== 左侧标注工具箱（仅标注模式出现）====== -->
         <Border x:Name="ToolBoxCard" Classes="floatpanel"
@@ -314,13 +240,72 @@
             </ListBox>
           </StackPanel>
         </Border>
-      </Grid>
     </Grid>
+
+    <!-- ==================== 底部状态栏（已并入视图工具：状态文字 + 缩放 / 旋转 / 翻转 + 面板 / 缩略图开关 + 位置）==================== -->
+    <Border Grid.Row="2" Grid.ColumnSpan="2"
+            IsVisible="{Binding UiVisible}"
+            Background="{DynamicResource YhChrome}"
+            BorderThickness="0,1,0,0" BorderBrush="{DynamicResource YhBorder}" Padding="11,4">
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Grid.Column="0" Text="{Binding StatusText}" Classes="dim"
+                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+        <ScrollViewer Grid.Column="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+          <StackPanel Orientation="Horizontal" Spacing="1" VerticalAlignment="Center">
+            <ToggleButton Classes="tb" IsChecked="{Binding PanelVisible}" ToolTip.Tip="侧边面板">
+              <Path Classes="icon" Data="{StaticResource ic_panel}"/>
+            </ToggleButton>
+            <ToggleButton Classes="tb" IsChecked="{Binding ThumbsVisible}" ToolTip.Tip="缩略图条">
+              <Path Classes="icon" Data="{StaticResource ic_thumbs}"/>
+            </ToggleButton>
+            <Rectangle Classes="sep"/>
+            <Button Classes="tb" Command="{Binding ZoomOutCommand}" ToolTip.Tip="缩小  -">
+              <Path Classes="icon" Data="{StaticResource ic_zoom_out}"/>
+            </Button>
+            <Border VerticalAlignment="Center" MinWidth="52" Height="24" CornerRadius="5"
+                    Background="{DynamicResource YhHover}" BorderBrush="{DynamicResource YhBorder}"
+                    BorderThickness="1" ToolTip.Tip="当前显示比例（滚轮缩放实时更新）">
+              <TextBlock Text="{Binding ZoomPercentText}" Classes="dim" FontSize="11"
+                         HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <Button Classes="tb" Command="{Binding ZoomInCommand}" ToolTip.Tip="放大  +">
+              <Path Classes="icon" Data="{StaticResource ic_zoom_in}"/>
+            </Button>
+            <Button Classes="tb" Command="{Binding FitCommand}" ToolTip.Tip="重置视图 / 适应窗口（复位缩放）">
+              <Path Classes="icon" Data="{StaticResource ic_fit}"/>
+            </Button>
+            <Button Classes="tb-auto" Command="{Binding ActualSizeCommand}" Content="1:1" ToolTip.Tip="原始像素"/>
+            <Rectangle Classes="sep"/>
+            <Button Classes="tb" Command="{Binding RotateLeftCommand}" ToolTip.Tip="逆时针 90°">
+              <Path Classes="icon" Data="{StaticResource ic_rot_l}"/>
+            </Button>
+            <Button Classes="tb" Command="{Binding RotateRightCommand}" ToolTip.Tip="顺时针 90°">
+              <Path Classes="icon" Data="{StaticResource ic_rot_r}"/>
+            </Button>
+            <Button Classes="tb" Command="{Binding FlipHCommand}" ToolTip.Tip="水平翻转">
+              <Path Classes="icon" Data="{StaticResource ic_flip_h}"/>
+            </Button>
+            <Button Classes="tb" Command="{Binding FlipVCommand}" ToolTip.Tip="垂直翻转">
+              <Path Classes="icon" Data="{StaticResource ic_flip_v}"/>
+            </Button>
+            <Rectangle Classes="sep"/>
+            <TextBlock Text="{Binding PositionText}" Classes="dim" VerticalAlignment="Center" Margin="4,0,2,0"/>
+          </StackPanel>
+        </ScrollViewer>
+      </Grid>
+    </Border>
 
     <!-- ==================== 右侧面板 ==================== -->
     <Border Grid.Row="1" Grid.Column="1" Classes="panel"
-            IsVisible="{Binding PanelVisible}" Width="280">
-      <TabControl IsVisible="{Binding UiVisible}" Padding="0" Margin="0"
+            IsVisible="{Binding PanelChromeVisible}" Width="280">
+      <Grid RowDefinitions="Auto,*">
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="10,7,6,4">
+          <TextBlock Text="面板" Classes="dim" FontSize="11.5" VerticalAlignment="Center"/>
+          <Button Grid.Column="1" Classes="mini" Width="26" Height="24" Click="OnClosePanel" ToolTip.Tip="关闭侧边栏">
+            <Path Classes="icon" Data="{StaticResource ic_close}" Width="11" Height="11"/>
+          </Button>
+        </Grid>
+        <TabControl Grid.Row="1" IsVisible="{Binding UiVisible}" Padding="0" Margin="0"
                   SelectedIndex="{Binding PanelTabIndex}">
         <TabControl.Styles>
           <Style Selector="TabItem /template/ Border#PART_LayoutRoot">
@@ -498,20 +483,6 @@
           </ScrollViewer>
         </TabItem>
       </TabControl>
-    </Border>
-
-    <!-- ==================== 状态栏 ==================== -->
-    <Border Grid.Row="2" Grid.ColumnSpan="2"
-            IsVisible="{Binding UiVisible}"
-            Background="{DynamicResource YhChrome}"
-            BorderThickness="0,1,0,0" BorderBrush="{DynamicResource YhBorder}">
-      <Grid ColumnDefinitions="*,Auto" Margin="11,0">
-        <TextBlock Grid.Column="0" Text="{Binding StatusText}" Classes="dim"
-                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-          <TextBlock Text="{Binding PositionText}" Classes="dim" VerticalAlignment="Center"/>
-          <TextBlock Text="{Binding ZoomPercentText}" Classes="dim" VerticalAlignment="Center"/>
-        </StackPanel>
       </Grid>
     </Border>
   </Grid>

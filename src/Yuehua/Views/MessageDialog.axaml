@@ -1,0 +1,43 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Yuehua.Views.MessageDialog"
+        Title="提示"
+        Width="420" SizeToContent="Height" CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource YhChrome}"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaTitleBarHeightHint="38"
+        WindowDecorations="BorderOnly">
+
+  <Grid RowDefinitions="38,Auto">
+    <!-- ============ 标题栏 ============ -->
+    <Border Grid.Row="0" Background="{DynamicResource YhChrome}"
+            BorderThickness="0,0,0,1" BorderBrush="{DynamicResource YhBorder}"
+            PointerPressed="OnTitleBarPointerPressed">
+      <Grid ColumnDefinitions="Auto,*,Auto" Margin="13,0,0,0">
+        <Path Grid.Column="0" Classes="icon" Width="15" Height="15"
+              Data="{StaticResource ic_settings}" VerticalAlignment="Center"/>
+        <TextBlock Grid.Column="1" Text="{Binding Title, RelativeSource={RelativeSource FindAncestor, AncestorType=Window}}"
+                   FontWeight="SemiBold" FontSize="12.5"
+                   VerticalAlignment="Center" Margin="9,0,0,0"/>
+        <Button Grid.Column="2" Classes="win" Width="44" Height="38"
+                Click="OnClose" ToolTip.Tip="关闭">
+          <Path Classes="icon" Data="{StaticResource ic_close}" Width="12" Height="12"/>
+        </Button>
+      </Grid>
+    </Border>
+
+    <!-- ============ 内容 ============ -->
+    <Grid Grid.Row="1" RowDefinitions="*,Auto" Margin="18,14">
+      <StackPanel Grid.Row="0" Spacing="8" Margin="0,0,0,14">
+        <TextBlock x:Name="MessageText" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap"/>
+        <TextBlock x:Name="DetailText" Classes="dim" FontSize="11.5" TextWrapping="Wrap"/>
+      </StackPanel>
+      <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right">
+        <Button Classes="accent" Height="30" MinWidth="86" Click="OnClose">
+          <TextBlock Text="知道了" FontSize="11.5" VerticalAlignment="Center"/>
+        </Button>
+      </StackPanel>
+    </Grid>
+  </Grid>
+</Window>
